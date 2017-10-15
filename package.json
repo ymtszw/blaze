@@ -7,6 +7,8 @@
     "build": "npm run build:dev",
     "build:dev": "NODE_ENV=dev webpack",
     "build:prod": "NODE_ENV=prod webpack",
+    "dynamo": "npm run dynamo:dev",
+    "dynamo:dev": "java -Djava.library.path=/opt/dynamodb_local/DynamoDBLocal_lib -jar /opt/dynamodb_local/DynamoDBLocal.jar -sharedDb",
     "postcss": "npm run postcss:dev",
     "postcss:dev": "NODE_ENV=dev postcss src/blaze.css --output dist/blaze.css",
     "postcss:prod": "NODE_ENV=prod postcss src/blaze.css --output dist/blaze.min.css",
