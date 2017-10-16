@@ -10,7 +10,7 @@ module.exports = () => {
   const node_env = (process.env.NODE_ENV == 'prod') ? 'prod' : 'dev'
 
   return {
-    entry: {motif: ['./src/index.js']},
+    entry: {blaze: ['./src/blaze.js']},
 
     devServer: {
       contentBase: BASE,

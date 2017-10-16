@@ -28,7 +28,9 @@
   "license": "MIT",
   "repository": "https://github.com/ymtszw/blaze.git",
   "devDependencies": {
+    "amazon-product-api": "^0.4.4",
     "autoprefixer": "^7.1.5",
+    "aws-sdk": "^2.133.0",
     "css-loader": "^0.28.7",
     "cssnano": "^3.10.0",
     "elm": "^0.18.0",
