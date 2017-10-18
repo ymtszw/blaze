@@ -10,7 +10,10 @@ module.exports = () => {
   const node_env = (process.env.NODE_ENV == 'prod') ? 'prod' : 'dev'
 
   return {
-    entry: {blaze: ['./src/blaze.js']},
+    entry: {
+      // blaze: ['./src/blaze.js'], // Frontend
+      igniter: ['./src/igniter.js'], // Crawler
+    },
 
     devServer: {
       contentBase: BASE,
