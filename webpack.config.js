@@ -22,6 +22,8 @@ module.exports = () => {
       },
     },
 
+    target: 'node',
+
     output: {
       path: BASE,
       filename: '[name].js',
@@ -60,4 +62,4 @@ module.exports = () => {
       ],
     },
   }
-};
+}
