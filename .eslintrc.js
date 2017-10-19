@@ -114,6 +114,7 @@ module.exports = {
     'no-caller': 'error',
     'no-catch-shadow': 'error',
     'no-confusing-arrow': 'error',
+    'no-console': 'warn',
     'no-continue': 'error',
     'no-div-regex': 'error',
     'no-duplicate-imports': 'error',
@@ -203,7 +204,7 @@ module.exports = {
       'error',
       {
         'multiline': true,
-        'minProperties': 2,
+        'minProperties': 1,
       },
     ],
     'object-curly-spacing': [
@@ -236,8 +237,17 @@ module.exports = {
     'require-await': 'error',
     'require-jsdoc': 'error',
     'rest-spread-spacing': 'error',
-    'semi': 'off',
-    'semi-spacing': 'error',
+    'semi': [
+      'error',
+      'never',
+    ],
+    'semi-spacing': [
+      'error',
+      {
+        'before': false,
+        'after': true
+      },
+    ],
     'semi-style': [
       'error',
       'last',

@@ -1,6 +1,6 @@
-const path = require('path');
+const path = require('path')
 
-const BASE = path.join(__dirname, 'dist');
+const BASE = path.join(__dirname, 'dist')
 const EXCLUDED = [
   /elm-stuff/,
   /node_modules/,
@@ -39,19 +39,27 @@ module.exports = () => {
           exclude: EXCLUDED,
           use: {
             loader: 'file-loader',
-            options: {name: '[name].[ext]'},
+            options: {
+              name: '[name].[ext]',
+            },
           },
         },
         {
           test: /\.css$/,
           exclude: EXCLUDED,
           use: [
-            {loader: 'style-loader'},
+            {
+              loader: 'style-loader',
+            },
             {
               loader: 'css-loader',
-              options: {importLoaders: 1},
+              options: {
+                importLoaders: 1,
+              },
             },
-            {loader: 'postcss-loader'},
+            {
+              loader: 'postcss-loader',
+            },
           ],
         },
         {
@@ -59,7 +67,9 @@ module.exports = () => {
           exclude: EXCLUDED,
           use: {
             loader: 'elm-webpack-loader',
-            options: {debug: node_env == 'dev'},
+            options: {
+              debug: node_env == 'dev',
+            },
           },
         },
       ],
