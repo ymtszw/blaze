@@ -14,6 +14,8 @@ var igniteWorker = Elm.Igniter.worker({
   associateTag: 'paradoxica019-22', // Hardcoded but decoupled from ID/Secret so no problem
 })
 
+// Ports
+
 igniteWorker.ports.sendModelDump.subscribe(model => {
   console.log(model)
 })

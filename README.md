@@ -6,7 +6,7 @@ Kindle recommender.
 
 Install [DynamoDBLocal](http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html):
 
-``` sh
+```sh
 sudo mkdir /opt/dynamodb_local
 sudo chown $(whoami) /opt/dynamodb_local
 cd /opt/dynamodb_local

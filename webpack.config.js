@@ -11,18 +11,8 @@ module.exports = () => {
 
   return {
     entry: {
-      // blaze: ['./src/blaze.js'], // Frontend
       igniter: ['./src/igniter.js'], // Crawler
-    },
-
-    devServer: {
-      contentBase: BASE,
-      watchContentBase: true,
-      compress: true,
-      stats: {
-        colors: true,
-        depth: true,
-      },
+      worker: ['./src/worker.js'], // Worker for Qiita article
     },
 
     target: 'node',
@@ -35,40 +25,13 @@ module.exports = () => {
     module: {
       rules: [
         {
-          test: /\.html$/,
-          exclude: EXCLUDED,
-          use: {
-            loader: 'file-loader',
-            options: {
-              name: '[name].[ext]',
-            },
-          },
-        },
-        {
-          test: /\.css$/,
-          exclude: EXCLUDED,
-          use: [
-            {
-              loader: 'style-loader',
-            },
-            {
-              loader: 'css-loader',
-              options: {
-                importLoaders: 1,
-              },
-            },
-            {
-              loader: 'postcss-loader',
-            },
-          ],
-        },
-        {
           test: /\.elm$/,
           exclude: EXCLUDED,
           use: {
             loader: 'elm-webpack-loader',
             options: {
               debug: node_env == 'dev',
+              warn: true,
             },
           },
         },
