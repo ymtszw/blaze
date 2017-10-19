@@ -10,5 +10,5 @@ type alias PAAPICredentials =
 
 type alias Model =
     { paapiCredentials : PAAPICredentials
-    , someFlag : Bool
+    , running : Bool
     }

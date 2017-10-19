@@ -12,6 +12,8 @@ This should be unnecessary on Elm 0.19.
 
 import Platform
 import Json.Decode exposing (..)
+import Time exposing (Time)
+import Date
 import Igniter.Model exposing (Model, PAAPICredentials)
 import Igniter.Fuse as IF
 
@@ -21,13 +23,14 @@ type alias Flags =
 
 
 type Msg
-    = ModelDumpMsg ()
+    = IgniteMsg String
+    | TickMsg Time
 
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
     ( { paapiCredentials = flags
-      , someFlag = True
+      , running = False
       }
     , Cmd.none
     )
@@ -36,13 +39,27 @@ init flags =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        ModelDumpMsg () ->
-            ( model, IF.sendModelDump model )
+        IgniteMsg text ->
+            text
+                |> Debug.log "Igniter started"
+                |> always ( { model | running = True }, Cmd.none )
+
+        TickMsg time ->
+            time
+                |> Date.fromTime
+                |> Debug.log "Tick"
+                |> always ( model, IF.sendModelDump model )
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
-    IF.requestModelDump ModelDumpMsg
+subscriptions ({ running } as model) =
+    IF.ignite IgniteMsg
+        :: (if running then
+                [ Time.every (10 * Time.second) TickMsg ]
+            else
+                []
+           )
+        |> Sub.batch
 
 
 main : Platform.Program Flags Model Msg

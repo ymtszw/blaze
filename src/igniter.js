@@ -2,20 +2,22 @@ const AWS = require('aws-sdk')
 
 // PAAPI Credentials must be set in Shared Credential File (~/.aws/credentials)
 // for running user (both local and cloud) as 'paapi' profile.
-const paapiCredentials = new AWS.SharedIniFileCredentials({profile: 'paapi'})
-
-var IgniterElm = require('./Igniter.elm')
-
-var app = IgniterElm.Igniter.worker({
-  accessKeyId: paapiCredentials.accessKeyId,
-  secretAccessKey: paapiCredentials.secretAccessKey,
-  associateTag: 'blaze0f-22', // Hardcoded but decoupled from ID/Secret so no problem
+const paapiCredentials = new AWS.SharedIniFileCredentials({
+  profile: 'paapi',
 })
 
-app.ports.sendModelDump.subscribe(model => {
+var Elm = require('./Igniter.elm')
+
+var igniteWorker = Elm.Igniter.worker({
+  accessKeyId: paapiCredentials.accessKeyId,
+  secretAccessKey: paapiCredentials.secretAccessKey,
+  associateTag: 'paradoxica019-22', // Hardcoded but decoupled from ID/Secret so no problem
+})
+
+igniteWorker.ports.sendModelDump.subscribe(model => {
   console.log(model)
 })
 
 // Body of the script
 
-app.ports.requestModelDump.send(null)
+igniteWorker.ports.ignite.send('Fire!')
