@@ -14,17 +14,22 @@ import Platform
 import Json.Decode exposing (..)
 import Time exposing (Time)
 import Date
-import Igniter.Model exposing (Model, PAAPICredentials)
-import Igniter.Fuse as IF
+import Http
+import Util exposing ((=>))
+import PAAPI
+import Igniter.Model exposing (Model)
+import Igniter.Fuse as Fuse
+import Igniter.Kindle as Kindle
 
 
 type alias Flags =
-    PAAPICredentials
+    PAAPI.Credentials
 
 
 type Msg
     = IgniteMsg String
     | TickMsg Time
+    | PAAPIRes (Result Http.Error String)
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -48,14 +53,24 @@ update msg model =
             time
                 |> Date.fromTime
                 |> Debug.log "Tick"
-                |> always ( model, IF.sendModelDump model )
+                |> always ( model, testPaapi model time )
+
+        PAAPIRes result ->
+            result
+                |> Debug.log "Response"
+                |> always ( model, Cmd.none )
+
+
+testPaapi : Model -> Time -> Cmd Msg
+testPaapi { paapiCredentials } time =
+    Kindle.search paapiCredentials PAAPIRes time Kindle.Root [ "衿沢世衣子" ]
 
 
 subscriptions : Model -> Sub Msg
 subscriptions ({ running } as model) =
-    IF.ignite IgniteMsg
+    Fuse.ignite IgniteMsg
         :: (if running then
-                [ Time.every (10 * Time.second) TickMsg ]
+                [ Time.every (5 * Time.second) TickMsg ]
             else
                 []
            )

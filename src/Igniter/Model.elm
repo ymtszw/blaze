@@ -1,14 +1,9 @@
-module Igniter.Model exposing (Model, PAAPICredentials)
+module Igniter.Model exposing (Model)
 
-
-type alias PAAPICredentials =
-    { accessKeyId : String
-    , secretAccessKey : String
-    , associateTag : String
-    }
+import PAAPI
 
 
 type alias Model =
-    { paapiCredentials : PAAPICredentials
+    { paapiCredentials : PAAPI.Credentials
     , running : Bool
     }

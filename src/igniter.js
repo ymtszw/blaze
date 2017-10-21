@@ -1,3 +1,6 @@
+// Enables XMLHttpRequest (required by elm-lang/http) in node environment
+global.XMLHttpRequest = require('xhr2').XMLHttpRequest
+
 const AWS = require('aws-sdk')
 
 // PAAPI Credentials must be set in Shared Credential File (~/.aws/credentials)

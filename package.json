@@ -28,6 +28,7 @@
     "elm-test": "^0.18.9",
     "elm-webpack-loader": "^4.3.1",
     "eslint": "^4.8.0",
-    "webpack": "^3.6.0"
+    "webpack": "^3.6.0",
+    "xhr2": "^0.1.4"
   }
 }
