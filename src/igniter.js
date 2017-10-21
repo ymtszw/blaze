@@ -1,20 +1,26 @@
+const fs = require('fs')
+const ini = require('ini')
+
 // Enables XMLHttpRequest (required by elm-lang/http) in node environment
 global.XMLHttpRequest = require('xhr2').XMLHttpRequest
 
-const AWS = require('aws-sdk')
+const home = process.env.HOME
 
-// PAAPI Credentials must be set in Shared Credential File (~/.aws/credentials)
-// for running user (both local and cloud) as 'paapi' profile.
-const paapiCredentials = new AWS.SharedIniFileCredentials({
-  profile: 'paapi',
-})
+if (!home) {
+  throw new Error('Home directory cannot be found in $HOME env var.')
+}
+
+// PAAPI Credentials must be set in Shared Credential INI File (~/.aws/credentials)
+// for running user (both local and cloud) as '[paapi]' profile.
+// You should set non-standard property 'associate_tag' too.
+const paapiCredentials = ini.decode(fs.readFileSync(`${home}/.aws/credentials`, 'utf-8')).paapi
 
 var Elm = require('./Igniter.elm')
 
 var igniteWorker = Elm.Igniter.worker({
-  accessKeyId: paapiCredentials.accessKeyId,
-  secretAccessKey: paapiCredentials.secretAccessKey,
-  associateTag: 'paradoxica019-22', // Hardcoded but decoupled from ID/Secret so no problem
+  accessKeyId: paapiCredentials.aws_access_key_id,
+  secretAccessKey: paapiCredentials.aws_secret_access_key,
+  associateTag: paapiCredentials.associate_tag,
 })
 
 // Ports
