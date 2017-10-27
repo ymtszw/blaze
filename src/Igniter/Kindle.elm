@@ -4,19 +4,21 @@ module Igniter.Kindle exposing (BrowseNode(..), search)
 
 Reference of available search parameters for JP Kindle store:
 
-| SearchIndex | Root Browse Node | Sort Values | ItemSearch Parameters |
-|:--- |:--- |:--- |:--- |
-| KindleStore | 2250739051 | relevancerank | Author |
-| | | salesrank | Availability |
-| | | price | ItemPage |
-| | | -price | Keywords |
-| | | reviewrank | MaximumPrice |
-| | | reviewrank_authority | MerchantId |
-| | | daterank | MinPercentageOff |
-| | | | MinimumPrice |
-| | | | Publisher |
-| | | | Sort |
-| | | | Title |
+<pre>
+| SearchIndex | Root Browse Node | Sort Values          | ItemSearch Parameters |
+|:----------- |:---------------- |:-------------------- |:--------------------- |
+| KindleStore | 2250739051       | relevancerank        | Author                |
+|             |                  | salesrank            | Availability          |
+|             |                  | price                | ItemPage              |
+|             |                  | -price               | Keywords              |
+|             |                  | reviewrank           | MaximumPrice          |
+|             |                  | reviewrank_authority | MerchantId            |
+|             |                  | daterank             | MinPercentageOff      |
+|             |                  |                      | MinimumPrice          |
+|             |                  |                      | Publisher             |
+|             |                  |                      | Sort                  |
+|             |                  |                      | Title                 |
+</pre>
 
 <http://docs.aws.amazon.com/AWSECommerceService/latest/DG/LocaleJP.html>
 
