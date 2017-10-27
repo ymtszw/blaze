@@ -23,7 +23,7 @@ Reference of available search parameters for JP Kindle store:
 -}
 
 import Time exposing (Time)
-import Http
+import XmlParser exposing (Xml)
 import Util exposing (KVS, (=>))
 import PAAPI
 
@@ -32,7 +32,7 @@ type BrowseNode
     = Root
 
 
-search : PAAPI.Credentials -> (Result Http.Error String -> msg) -> Time -> BrowseNode -> List String -> Cmd msg
+search : PAAPI.Credentials -> (Result PAAPI.Error Xml -> msg) -> Time -> BrowseNode -> List String -> Cmd msg
 search creds msg time browseNode keywords =
     PAAPI.get creds
         msg

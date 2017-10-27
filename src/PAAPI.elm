@@ -1,4 +1,4 @@
-module PAAPI exposing (Credentials, Locale(..), Request, get, signedUrl, sign)
+module PAAPI exposing (Credentials, Locale(..), Request, Error(..), get, signedUrl, sign)
 
 {-| Amazon Product Advertising API (PAAPI) Client module.
 
@@ -20,6 +20,7 @@ import Word.Bytes as Bytes
 import BinaryBase64
 import Date
 import Date.Extra
+import XmlParser as Xml exposing (Xml)
 import Util exposing (KVS, (=>))
 
 
@@ -96,7 +97,13 @@ endpoint locale =
             "webservices.amazon.com"
 
 
-get : Credentials -> (Result Http.Error String -> msg) -> Time -> Request -> Cmd msg
+type Error
+    = Limit
+    | InvalidBody String
+    | Fail Http.Error
+
+
+get : Credentials -> (Result Error Xml -> msg) -> Time -> Request -> Cmd msg
 get creds msg time req =
     let
         timestamp =
@@ -107,7 +114,37 @@ get creds msg time req =
     in
         signedUrl creds newReq
             |> Http.getString
-            |> Http.send msg
+            |> Http.send (mapResult msg)
+
+
+mapResult : (Result Error Xml -> msg) -> Result Http.Error String -> msg
+mapResult msg result =
+    case result of
+        Ok str ->
+            case Xml.parse str of
+                Ok xml ->
+                    msg <| Ok xml
+
+                Err parserError ->
+                    msg <| Err <| InvalidBody <| toString parserError
+
+        Err httpError ->
+            msg <| Err <| handleHttpError httpError
+
+
+handleHttpError : Http.Error -> Error
+handleHttpError error =
+    case error of
+        Http.BadStatus { status } ->
+            case status.code of
+                503 ->
+                    Limit
+
+                _ ->
+                    Fail error
+
+        _ ->
+            Fail error
 
 
 {-| Generates signed URL for PAAPI.
