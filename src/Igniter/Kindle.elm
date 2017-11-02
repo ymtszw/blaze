@@ -1,4 +1,4 @@
-module Igniter.Kindle exposing (BrowseNode(..), search)
+module Igniter.Kindle exposing (BrowseNode(..), Item, SearchResult, search)
 
 {-| Wrapper client module for PAAPI that queries for items in Kindle store.
 
@@ -25,8 +25,10 @@ Reference of available search parameters for JP Kindle store:
 -}
 
 import Time exposing (Time)
-import XmlParser exposing (Xml)
+import XmlParser exposing (Xml, Node(..))
 import Util exposing (KVS, (=>))
+import Xml.Decode as XD
+import Xml.Decode.Pipeline as XDP
 import PAAPI
 
 
@@ -34,23 +36,57 @@ type BrowseNode
     = Root
 
 
-search : PAAPI.Credentials -> (Result PAAPI.Error Xml -> msg) -> Time -> BrowseNode -> List String -> Cmd msg
-search creds msg time browseNode keywords =
+type alias Item =
+    { asin : String
+    , title : String
+    , authors : List String
+    , manufacturer : Maybe String
+    }
+
+
+type alias SearchResult =
+    { totalPages : Int
+    , currentPage : Int
+    , items : List Item
+    }
+
+
+search : PAAPI.Credentials -> (Result PAAPI.Error SearchResult -> msg) -> Time -> BrowseNode -> Int -> List String -> Cmd msg
+search creds msg time browseNode page keywords =
     PAAPI.get creds
+        searchResultDecoder
         msg
         time
         { locale = PAAPI.JP
-        , params = params browseNode keywords
+        , params = params browseNode page keywords
         }
 
 
-params : BrowseNode -> List String -> KVS
-params browseNode keywords =
+searchResultDecoder : XD.Decoder SearchResult
+searchResultDecoder =
+    XD.succeed SearchResult
+        |> XDP.requiredPath [ "Items", "TotalPages" ] (XD.singleton XD.int)
+        |> XDP.optionalPathWithDefault [ "Items", "Request", "ItemSearchRequest", "ItemPage" ] (XD.singleton XD.int) 1
+        |> XDP.requiredPath [ "Items", "Item" ] (XD.list itemDecoder)
+
+
+itemDecoder : XD.Decoder Item
+itemDecoder =
+    XD.succeed Item
+        |> XDP.requiredPath [ "ASIN" ] (XD.singleton XD.string)
+        |> XDP.requiredPath [ "ItemAttributes", "Title" ] (XD.singleton XD.string)
+        |> XDP.requiredPath [ "ItemAttributes", "Author" ] (XD.list XD.string)
+        |> XDP.optionalPath [ "ItemAttributes", "Manufacturer" ] (XD.singleton XD.string)
+
+
+params : BrowseNode -> Int -> List String -> KVS
+params browseNode page keywords =
     setKeywords keywords
         [ "SearchIndex" => searchIndex
         , "Operation" => "ItemSearch"
         , "BrowseNode" => browseNodeId browseNode
         , "Sort" => "daterank"
+        , "ItemPage" => toString page
         ]
 
 

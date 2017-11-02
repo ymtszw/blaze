@@ -20,8 +20,9 @@ import Word.Bytes as Bytes
 import BinaryBase64
 import Date
 import Date.Extra
-import XmlParser as Xml exposing (Xml)
+import XmlParser exposing (Xml)
 import Util exposing (KVS, (=>))
+import Xml.Decode as XD
 
 
 type Locale
@@ -103,8 +104,8 @@ type Error
     | Fail Http.Error
 
 
-get : Credentials -> (Result Error Xml -> msg) -> Time -> Request -> Cmd msg
-get creds msg time req =
+get : Credentials -> XD.Decoder a -> (Result Error a -> msg) -> Time -> Request -> Cmd msg
+get creds decoder msg time req =
     let
         timestamp =
             time |> Date.fromTime |> Date.Extra.toUtcIsoString
@@ -114,16 +115,21 @@ get creds msg time req =
     in
         signedUrl creds newReq
             |> Http.getString
-            |> Http.send (mapResult msg)
+            |> Http.send (mapResult decoder msg)
 
 
-mapResult : (Result Error Xml -> msg) -> Result Http.Error String -> msg
-mapResult msg result =
+mapResult : XD.Decoder a -> (Result Error a -> msg) -> Result Http.Error String -> msg
+mapResult decoder msg result =
     case result of
         Ok str ->
-            case Xml.parse str of
+            case XmlParser.parse str of
                 Ok xml ->
-                    msg <| Ok xml
+                    case XD.decodeXml decoder xml of
+                        Ok decoded ->
+                            msg <| Ok decoded
+
+                        Err error ->
+                            msg <| Err <| InvalidBody error
 
                 Err parserError ->
                     msg <| Err <| InvalidBody <| toString parserError

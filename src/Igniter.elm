@@ -29,12 +29,16 @@ type alias Flags =
 type Msg
     = IgniteMsg String
     | TickMsg Time
-    | PAAPIRes (Result PAAPI.Error XmlParser.Xml)
+    | PAAPIRes (Result PAAPI.Error Kindle.SearchResult)
 
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
-    ( { paapiCredentials = flags, running = False }, Cmd.none )
+    { paapiCredentials = flags
+    , previousResult = Nothing
+    , running = False
+    }
+        ! []
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -48,9 +52,9 @@ update msg model =
             logAndThen (Date.fromTime time)
                 ( model, testPaapi model time )
 
-        PAAPIRes (Ok xml) ->
-            ( model, Cmd.none )
-                |> dumpTestRes xml
+        PAAPIRes (Ok res) ->
+            logAndThen res
+                ( { model | previousResult = Just res }, Cmd.none )
 
         PAAPIRes (Err PAAPI.Limit) ->
             logAndThen "Rate limited..."
@@ -61,23 +65,26 @@ update msg model =
                 ( model, Cmd.none )
 
 
-dumpTestRes : XmlParser.Xml -> ret -> ret
-dumpTestRes xml ret =
-    xml
-        |> Xml.q [ "Items", "Item", "ItemAttributes", "Title", "$text" ]
-        |> logAndThen "Fetched titles"
-        |> List.foldl (\t i -> t |> Xml.text |> Debug.log (i |> toString |> String.padLeft 4 ' ') |> always (i + 1)) 1
-        |> always ret
-
-
 logAndThen : log -> ret -> ret
 logAndThen text ret =
     Debug.log "Info" text |> always ret
 
 
 testPaapi : Model -> Time -> Cmd Msg
-testPaapi { paapiCredentials } time =
-    Kindle.search paapiCredentials PAAPIRes time Kindle.Root [ "衿沢世衣子" ]
+testPaapi { paapiCredentials, previousResult } time =
+    let
+        searchPage page =
+            Kindle.search paapiCredentials PAAPIRes time Kindle.Root page [ "衿沢世衣子" ]
+    in
+        case previousResult of
+            Nothing ->
+                searchPage 1
+
+            Just { totalPages, currentPage } ->
+                if totalPages == currentPage || currentPage == 10 then
+                    Cmd.none
+                else
+                    searchPage (currentPage + 1)
 
 
 subscriptions : Model -> Sub Msg

@@ -15,9 +15,9 @@ if (!home) {
 // You should set non-standard property 'associate_tag' too.
 const paapiCredentials = ini.decode(fs.readFileSync(`${home}/.aws/credentials`, 'utf-8')).paapi
 
-var Elm = require('./Igniter.elm')
+const Elm = require('./Igniter.elm')
 
-var igniteWorker = Elm.Igniter.worker({
+const igniteWorker = Elm.Igniter.worker({
   accessKeyId: paapiCredentials.aws_access_key_id,
   secretAccessKey: paapiCredentials.aws_secret_access_key,
   associateTag: paapiCredentials.associate_tag,

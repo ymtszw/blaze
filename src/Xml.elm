@@ -1,4 +1,4 @@
-module Xml exposing (dig, q, text)
+module Xml exposing (dig, q, query, children, text)
 
 import XmlParser exposing (Xml, Node(..))
 
@@ -65,11 +65,13 @@ Paths can be given in XPath-like syntax:
 -}
 q : List String -> Xml -> List Node
 q path { root } =
-    qImpl path <| children root
+    query path <| children root
 
 
-qImpl : List String -> List Node -> List Node
-qImpl path nodes =
+{-| Unfolds node list. Main part of `q`.
+-}
+query : List String -> List Node -> List Node
+query path nodes =
     case path of
         [] ->
             nodes
@@ -82,7 +84,7 @@ qImpl path nodes =
             nodes
                 |> List.filter (hasName k)
                 |> List.concatMap children
-                |> qImpl ks
+                |> query ks
 
 
 hasName : String -> Node -> Bool
@@ -95,16 +97,9 @@ hasName name node =
             name == "$text"
 
 
-{-| Extract bare `String` from `XmlParser.Node`, somewhat unsafely.
+{-| Extracts bare `String` from `XmlParser.Node`, somewhat unsafely (for debug/log purpose).
 
-  - If the node is `XmlParser.Text`, extract its value.
-  - If the node is `XmlParser.Element` AND contains a single `XmlParser.Text` child,
-    extract its value.
-  - Otherwise returns empty string.
-
-Due to the third feature, this function should mainly be used for logging purpose.
-Since it will not discriminate actual empty string in `XmlParser.Text` node
-and `XmlParser.Element` node without an immediate string value.
+Cannot be used as a `Decoder`.
 
 -}
 text : Node -> String

@@ -1,6 +1,6 @@
-var Elm = require('./Worker.elm')
+const Elm = require('./Worker.elm')
 
-var worker = Elm.Worker.worker()
+const worker = Elm.Worker.worker()
 
 worker.ports.start.send('Hello World!')
 
