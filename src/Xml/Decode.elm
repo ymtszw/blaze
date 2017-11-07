@@ -11,9 +11,11 @@ module Xml.Decode
         , fail
         , singleton
         , list
+        , andThen
         , map2
         , withDefault
         , maybe
+        , lazy
         , path
         )
 
@@ -196,6 +198,18 @@ list decoder =
 -- DECODER UTILITY
 
 
+{-| Generates a decoder that depends on previous value.
+-}
+andThen : (a -> Decoder b) -> Decoder a -> Decoder b
+andThen decoderBGen decoderA node =
+    case decoderA node of
+        Ok valA ->
+            node |> decoderBGen valA
+
+        Err e ->
+            Err e
+
+
 {-| Takes two decoders, then generates a decoder that combines results from those decoders.
 
 It can be used for generating a decoder for a data type that takes two inputs.
@@ -245,6 +259,25 @@ maybe decoder =
                     Ok (Nothing)
     in
         decoder >> maybify
+
+
+{-| Generates a lazy decoder.
+
+Similar to `Json.Decode.lazy`.
+
+    someRecordDecoder : Decoder SomeRecord
+    someRecordDecoder =
+        map2 SomeRecord
+            (path [ "path", "to", "string", "value" ] (singleton string))
+            (path [ "path", "to", "list", "of", "someRecord" ] (list lazy (\_ -> someRecordDecoder)))
+
+With this, you can avoid "bad-recursion" error on compilation
+which happens when you define nested part of the above decoder as `(list someRecordDecoder)`
+
+-}
+lazy : (() -> Decoder a) -> Decoder a
+lazy =
+    flip andThen (succeed ())
 
 
 {-| Generates a decoder that applies a `ListDecoder` at specified XML path.
