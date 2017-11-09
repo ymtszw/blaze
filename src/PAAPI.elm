@@ -129,10 +129,10 @@ mapResult decoder msg result =
                             msg <| Ok decoded
 
                         Err error ->
-                            msg <| Err <| InvalidBody error
+                            msg <| Err <| InvalidBody <| error ++ " Got: " ++ str
 
                 Err parserError ->
-                    msg <| Err <| InvalidBody <| toString parserError
+                    msg <| Err <| InvalidBody <| toString parserError ++ " Got: " ++ str
 
         Err httpError ->
             msg <| Err <| handleHttpError httpError

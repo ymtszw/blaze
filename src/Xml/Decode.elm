@@ -7,6 +7,7 @@ module Xml.Decode
         , int
         , float
         , bool
+        , date
         , succeed
         , fail
         , singleton
@@ -46,6 +47,7 @@ you can implement variants of `singleton` and `list`: `ListDecoder`s.
 
 -}
 
+import Date exposing (Date)
 import XmlParser exposing (Xml, Node(..))
 import Xml
 
@@ -146,6 +148,18 @@ bool =
                     Err <| "Not a valid boolean value. Got: " ++ str
     in
         string >> Result.andThen toBool
+
+
+{-| Decodes to `Date`.
+
+It uses `new Date()` of JavaScript under the hood.
+
+<https://github.com/elm-lang/core/blob/5.1.1/src/Native/Date.js#L5>
+
+-}
+date : Decoder Date
+date =
+    string >> Result.andThen Date.fromString
 
 
 {-| Decoder that always succeed with the given value.
