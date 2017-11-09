@@ -1,4 +1,4 @@
-module Xml.Decode.Pipeline exposing (requiredPath, optionalPath, optionalPathWithDefault)
+module Xml.Decode.Pipeline exposing (requiredPath, possiblePath, optionalPath)
 
 {-| Xml decoder module sharing the spirit of `Json.Decode.Pipeline`.
 
@@ -31,16 +31,16 @@ requiredPath path_ listDecoderA =
 {-| Decodes value at optional XML path into `Maybe` value.
 
 If you want to apply default value when the node is missing,
-use `optionalPathWithDefault`.
+use `optionalWith`.
 
 -}
-optionalPath : List String -> ListDecoder a -> Decoder (Maybe a -> b) -> Decoder b
-optionalPath path_ listDecoderA =
+possiblePath : List String -> ListDecoder a -> Decoder (Maybe a -> b) -> Decoder b
+possiblePath path_ listDecoderA =
     map2 (|>) (Xml.Decode.maybe (path path_ listDecoderA))
 
 
 {-| Tries to decode value at optional XML path, use `default` if the node is missing.
 -}
-optionalPathWithDefault : List String -> ListDecoder a -> a -> Decoder (a -> b) -> Decoder b
-optionalPathWithDefault path_ listDecoderA default =
+optionalPath : List String -> ListDecoder a -> a -> Decoder (a -> b) -> Decoder b
+optionalPath path_ listDecoderA default =
     map2 (|>) (Xml.Decode.withDefault default (path path_ listDecoderA))

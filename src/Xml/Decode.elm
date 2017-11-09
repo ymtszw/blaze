@@ -12,6 +12,7 @@ module Xml.Decode
         , fail
         , singleton
         , list
+        , leakyList
         , andThen
         , map2
         , withDefault
@@ -202,10 +203,30 @@ singleton decoder nodes =
 
 
 {-| Composes `ListDecoder` that results in a list of values.
+
+This `ListDecoder` fails if any incoming items cannot be decoded.
+
 -}
 list : Decoder a -> ListDecoder (List a)
 list decoder =
     List.foldr (decoder >> Result.map2 (::)) (Ok [])
+
+
+{-| Variation of `list`, which ignores items that cannot be decoded.
+-}
+leakyList : Decoder a -> ListDecoder (List a)
+leakyList decoder =
+    List.foldr (decoder >> accumlateOk) (Ok [])
+
+
+accumlateOk : Result x a -> Result x (List a) -> Result x (List a)
+accumlateOk result acc =
+    case result of
+        Err _ ->
+            acc
+
+        Ok a ->
+            Result.map ((::) a) acc
 
 
 
@@ -330,4 +351,4 @@ putPathOnError path_ result =
             result
 
         Err originalError ->
-            Err <| originalError ++ "\n" ++ "At: " ++ toString path_
+            Err <| originalError ++ " At: " ++ toString path_
