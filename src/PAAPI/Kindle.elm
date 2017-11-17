@@ -143,15 +143,6 @@ sort sort_ =
             other |> toString |> String.toLower
 
 
-type alias Item =
-    { asin : String
-    , title : String
-    , releaseDate : Date
-    , authors : List String
-    , publisher : String -- This may not present for self-published/dojin items
-    }
-
-
 type Response
     = Search
         { totalPages : Int
@@ -164,6 +155,24 @@ type Response
         , children : List AdjacentBrowseNode
         , ancestors : List AdjacentBrowseNode
         }
+
+
+type alias Item =
+    { asin : String
+    , title : String
+    , releaseDate : Date
+    , authors : List String
+    , publisher : String -- This may not present for self-published/dojin items
+    , links : Links
+    }
+
+
+type alias Links =
+    { detailPageUrl : String
+    , smallImageUrl : String
+    , mediumImageUrl : String
+    , largeImageUrl : String
+    }
 
 
 type alias AdjacentBrowseNode =
@@ -191,14 +200,14 @@ browseNodeLookupResponse i n c a =
 
 {-| Searches items with given parameters.
 -}
-search : PAAPI.Credentials -> (Result PAAPI.Error Response -> msg) -> Time -> BrowseNode -> Sort -> Int -> List String -> Cmd msg
-search creds msg time browseNode sort_ page keywords =
+search : PAAPI.Credentials -> (Result PAAPI.Error Response -> msg) -> Time -> BrowseNode -> Sort -> Int -> String -> List String -> Cmd msg
+search creds msg time browseNode sort_ page publisher keywords =
     PAAPI.get creds
         searchResultDecoder
         msg
         time
         { locale = PAAPI.JP
-        , params = searchParams browseNode sort_ page keywords
+        , params = searchParams browseNode sort_ page publisher keywords
         }
 
 
@@ -220,27 +229,39 @@ itemDecoder =
         |> XDP.requiredPath [ "ItemAttributes", "Title" ] (XD.singleton XD.string)
         |> XDP.requiredPath [ "ItemAttributes", "ReleaseDate" ] (XD.singleton XD.date)
         |> XDP.requiredPath [ "ItemAttributes", "Author" ] (XD.list XD.string)
-        |> XDP.requiredPath [ "ItemAttributes", "Publisher" ] (XD.singleton XD.string)
+        |> XDP.optionalPath [ "ItemAttributes", "Publisher" ] (XD.singleton XD.string) "N/A"
+        |> XD.map2 (|>) linksDecoder
 
 
-searchParams : BrowseNode -> Sort -> Int -> List String -> KVS
-searchParams browseNode sort_ page keywords =
+linksDecoder : XD.Decoder Links
+linksDecoder =
+    XD.succeed Links
+        |> XDP.requiredPath [ "DetailPageURL" ] (XD.singleton XD.string)
+        |> XDP.optionalPath [ "SmallImage", "URL" ] (XD.singleton XD.string) "https://example.com/assets/image/fallback/small.png"
+        |> XDP.optionalPath [ "MediumImage", "URL" ] (XD.singleton XD.string) "https://example.com/assets/image/fallback/medium.png"
+        |> XDP.optionalPath [ "LargeImage", "URL" ] (XD.singleton XD.string) "https://example.com/assets/image/fallback/large.png"
+
+
+searchParams : BrowseNode -> Sort -> Int -> String -> List String -> KVS
+searchParams browseNode sort_ page publisher keywords =
     [ "Operation" => "ItemSearch"
     , "SearchIndex" => "Books" -- Required for Power Search
-    , "ResponseGroup" => "Request,ItemAttributes"
+    , "ResponseGroup" => "Request,ItemAttributes,Images"
     , "BrowseNode" => browseNodeId browseNode
     , "Sort" => sort sort_
     , "ItemPage" => toString page
-    , "Power" => power keywords
+    , "Power" => power publisher keywords
     ]
 
 
-power : List String -> String
-power keywords =
+power : String -> List String -> String
+power publisher keywords =
     [ "not 分冊"
     , "not 雑誌"
     , "not 画集"
+    , "not まとめ買い"
     , "pubdate: during 11-2017"
+    , "publisher: " ++ publisher
     ]
         |> (++) keywords
         |> String.join " and "

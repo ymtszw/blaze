@@ -50,7 +50,7 @@ firstJob : Igniter.Model.Options -> Job
 firstJob options =
     case options.mode of
         Igniter.Model.Search ->
-            Job.Search Kindle.Comic Kindle.DateRank 1 [ "講談社" ]
+            Job.Search Kindle.Comic Kindle.DateRank 1 "講談社" []
 
         Igniter.Model.BrowseNodeLookup ->
             Job.BrowseNodeLookup <| browseNode options.argv
@@ -149,8 +149,8 @@ onTick ({ jobStack, runningJob } as model) time =
 runJob : Model -> Time -> Job -> Cmd Msg
 runJob { paapiCredentials } time job =
     case job of
-        Job.Search browseNode sort page keywords ->
-            Kindle.search paapiCredentials PAAPIRes time browseNode sort page keywords
+        Job.Search browseNode sort page publisher keywords ->
+            Kindle.search paapiCredentials PAAPIRes time browseNode sort page publisher keywords
 
         Job.BrowseNodeLookup browseNode ->
             Kindle.browseNodeLookup paapiCredentials PAAPIRes time browseNode

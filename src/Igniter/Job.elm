@@ -4,7 +4,7 @@ import PAAPI.Kindle as Kindle
 
 
 type Job
-    = Search Kindle.BrowseNode Kindle.Sort Int (List String)
+    = Search Kindle.BrowseNode Kindle.Sort Int String (List String)
     | BrowseNodeLookup Kindle.BrowseNode
 
 
@@ -18,11 +18,11 @@ nextPage totalPages job =
         Nothing
     else
         case job of
-            Search _ _ 10 _ ->
+            Search _ _ 10 _ _ ->
                 Nothing
 
-            Search bn s p kw ->
-                Just (Search bn s (p + 1) kw)
+            Search bn s pa pu kw ->
+                Just (Search bn s (pa + 1) pu kw)
 
             _ ->
                 Nothing
