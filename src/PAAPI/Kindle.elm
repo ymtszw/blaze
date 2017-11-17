@@ -30,7 +30,8 @@ Reference of available search parameters for JP Kindle store:
 </pre>
 
 Although, in order to use Power Search feature, we need to use SearchIndex: Books.
-KindleStore
+
+<http://docs.aws.amazon.com/AWSECommerceService/latest/DG/ItemSearch_PowerSearches.html>
 
 <pre>
 | SearchIndex | Root Browse Node | Sort Values          | ItemSearch Parameters |
@@ -208,8 +209,7 @@ searchResultDecoder =
             (XD.succeed searchResponse
                 |> XDP.requiredPath [ "TotalPages" ] (XD.singleton XD.int)
                 |> XDP.optionalPath [ "Request", "ItemSearchRequest", "ItemPage" ] (XD.singleton XD.int) 1
-                -- Using leakyList; Ignores Items without essential properties
-                |> XDP.requiredPath [ "Item" ] (XD.leakyList itemDecoder)
+                |> XDP.requiredPath [ "Item" ] (XD.list itemDecoder)
             )
 
 

@@ -2,6 +2,8 @@ module Xml.Decode
     exposing
         ( Decoder
         , ListDecoder
+        , Error
+        , errorToString
         , decodeXml
         , string
         , int
@@ -59,11 +61,62 @@ import Xml
 
 
 type alias Decoder a =
-    Node -> Result String a
+    Node -> Result Error a
 
 
 type alias ListDecoder a =
-    List Node -> Result String a
+    List Node -> Result Error a
+
+
+type Reason
+    = NotFound
+    | Duplicate
+    | Unparsable String
+
+
+type Error
+    = SimpleError Reason
+    | DetailedError (List String) Node Reason
+
+
+
+-- ERROR UTILITY
+
+
+addPathAndNode : List String -> Node -> Error -> Error
+addPathAndNode path_ node error =
+    case error of
+        SimpleError r ->
+            DetailedError path_ node r
+
+        DetailedError innerPath innerNode r ->
+            DetailedError (path_ ++ innerPath) innerNode r
+
+
+errorToString : Error -> String
+errorToString error =
+    case error of
+        SimpleError r ->
+            reasonToString r
+
+        DetailedError path_ node r ->
+            reasonToString r
+                ++ (" At: " ++ String.join "/" path_)
+                -- We would like to have formatNode here...
+                ++ (" Node: " ++ toString node)
+
+
+reasonToString : Reason -> String
+reasonToString reason =
+    case reason of
+        NotFound ->
+            "Node not found."
+
+        Duplicate ->
+            "Multiple nodes found."
+
+        Unparsable str ->
+            str
 
 
 
@@ -72,7 +125,7 @@ type alias ListDecoder a =
 
 {-| Parses an `XmlParser.Xml` data into other type of Elm data, using `Decoder`.
 -}
-decodeXml : Decoder a -> Xml -> Result String a
+decodeXml : Decoder a -> Xml -> Result Error a
 decodeXml decoder { root } =
     decoder root
 
@@ -99,21 +152,26 @@ string node =
             Ok str
 
         _ ->
-            Err <| "The node is not a simple text node. Got: " ++ (toString node)
+            Err <| DetailedError [] node (Unparsable "The node is not a simple text node.")
 
 
 {-| Similar to `string`, but also tries to convert `String` to `Int`.
 -}
 int : Decoder Int
 int =
-    string >> Result.andThen String.toInt
+    string >> Result.andThen (String.toInt >> mapParseError)
+
+
+mapParseError : Result String a -> Result Error a
+mapParseError =
+    Result.mapError (SimpleError << Unparsable)
 
 
 {-| Decodes to `Float`.
 -}
 float : Decoder Float
 float =
-    string >> Result.andThen String.toFloat
+    string >> Result.andThen (String.toFloat >> mapParseError)
 
 
 {-| Decodes to `Bool`.
@@ -148,9 +206,9 @@ bool =
                     Ok False
 
                 _ ->
-                    Err <| "Not a valid boolean value. Got: " ++ str
+                    Err "Not a valid boolean value."
     in
-        string >> Result.andThen toBool
+        string >> Result.andThen (toBool >> mapParseError)
 
 
 {-| Decodes to `Date`.
@@ -162,7 +220,7 @@ It uses `new Date()` of JavaScript under the hood.
 -}
 date : Decoder Date
 date =
-    string >> Result.andThen Date.fromString
+    string >> Result.andThen (Date.fromString >> mapParseError)
 
 
 {-| Decoder that always succeed with the given value.
@@ -174,7 +232,7 @@ succeed a =
 
 {-| Decoder that always fail with the given message.
 -}
-fail : String -> Decoder a
+fail : Error -> Decoder a
 fail error =
     always (Err error)
 
@@ -195,13 +253,13 @@ singleton : Decoder a -> ListDecoder a
 singleton decoder nodes =
     case nodes of
         [] ->
-            Err "Node not found."
+            Err <| SimpleError NotFound
 
         [ singleton_ ] ->
             decoder singleton_
 
         _ :: _ ->
-            Err <| "Multiple nodes found. Got: " ++ toString nodes
+            Err <| SimpleError Duplicate
 
 
 {-| Composes `ListDecoder` that results in a list of values.
@@ -211,7 +269,15 @@ This `ListDecoder` fails if any incoming items cannot be decoded.
 -}
 list : Decoder a -> ListDecoder (List a)
 list decoder =
-    List.foldr (decoder >> Result.map2 (::)) (Ok [])
+    List.foldr (listReducer decoder) (Ok [])
+
+
+listReducer : Decoder a -> Node -> Result Error (List a) -> Result Error (List a)
+listReducer decoder node accResult =
+    node
+        |> decoder
+        |> Result.map2 (flip (::)) accResult
+        |> Result.mapError (addPathAndNode [] node)
 
 
 {-| Variation of `list`, which ignores items that cannot be decoded.
@@ -342,15 +408,15 @@ You should specify:
 
 -}
 path : List String -> ListDecoder a -> Decoder a
-path path_ listDecoder =
-    Xml.children >> Xml.query path_ >> listDecoder >> putPathOnError path_
+path path_ listDecoder node =
+    node |> Xml.children |> Xml.query path_ |> decodeWithErrorContext path_ node listDecoder
 
 
-putPathOnError : List String -> Result String a -> Result String a
-putPathOnError path_ result =
-    case result of
-        Ok _ ->
-            result
+decodeWithErrorContext : List String -> Node -> ListDecoder a -> List Node -> Result Error a
+decodeWithErrorContext path_ node listDecoder nodes =
+    case listDecoder nodes of
+        Ok ok ->
+            Ok ok
 
-        Err originalError ->
-            Err <| originalError ++ " At: " ++ toString path_
+        Err err ->
+            Err <| addPathAndNode path_ node err

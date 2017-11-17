@@ -34,7 +34,8 @@ parseAndDecodeXml decoder { body } =
                     Ok decoded
 
                 Err error ->
-                    Err <| error ++ " Got: " ++ body
+                    Err <| XD.errorToString error
 
         Err parserError ->
-            Err <| toString parserError ++ " Got: " ++ body
+            -- Could use disassembling Parser.Error into more readable string here; though we skip it for now
+            Err <| toString parserError
