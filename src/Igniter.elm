@@ -13,6 +13,7 @@ This should be unnecessary on Elm 0.19.
 import Platform
 import Json.Decode exposing (..)
 import Time exposing (Time)
+import Logger as L
 import PAAPI
 import PAAPI.Kindle as Kindle
 import Igniter.Model exposing (Model)
@@ -81,11 +82,11 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         TickMsg time ->
-            logAndThen time <|
+            L.info time <|
                 onTick model time
 
         PAAPIRes (Ok (Kindle.Search res)) ->
-            logAndThen res
+            L.dumpSearchResponse res
                 ( { model
                     | rateLimited = False
                     , runningJob = Nothing
@@ -95,29 +96,17 @@ update msg model =
                 )
 
         PAAPIRes (Ok (Kindle.BrowseNodeLookup res)) ->
-            logAndThen res
+            L.info res
                 ( { model | rateLimited = False, runningJob = Nothing }, Cmd.none )
 
         PAAPIRes (Err PAAPI.Limit) ->
-            logRateLimit model
+            L.rateLimit model.rateLimited
+                ( repush { model | rateLimited = True }, Cmd.none )
 
-        PAAPIRes (Err unexpected) ->
-            logAndThen unexpected
-                ( model, Cmd.none )
-
-
-logAndThen : log -> ret -> ret
-logAndThen text ret =
-    Debug.log "Info" text |> always ret
-
-
-logRateLimit : Model -> ( Model, Cmd Msg )
-logRateLimit model =
-    if model.rateLimited then
-        ( repush model, Cmd.none )
-    else
-        logAndThen "Rate limited..."
-            ( repush { model | rateLimited = True }, Cmd.none )
+        PAAPIRes (Err (PAAPI.Fail httpError)) ->
+            L.httpError False
+                httpError
+                ( { model | runningJob = Nothing }, Cmd.none )
 
 
 repush : Model -> Model
