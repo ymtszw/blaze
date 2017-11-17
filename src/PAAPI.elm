@@ -15,12 +15,12 @@ It uses GET request with query strings in URL.
 import Regex
 import Time exposing (Time)
 import Http
-import Crypto.HMAC exposing (sha256)
+import Http_
+import Crypto.HMAC as HMAC
 import Word.Bytes as Bytes
 import BinaryBase64
 import Date
 import Date.Extra
-import XmlParser exposing (Xml)
 import Util exposing (KVS, (=>))
 import Xml.Decode as XD
 
@@ -100,7 +100,6 @@ endpoint locale =
 
 type Error
     = Limit
-    | InvalidBody String
     | Fail Http.Error
 
 
@@ -113,33 +112,12 @@ get creds decoder msg time req =
         newReq =
             { req | params = ( "Timestamp", timestamp ) :: req.params }
     in
-        signedUrl creds newReq
-            |> Http.getString
-            |> Http.send (mapResult decoder msg)
+        Http_.getXml (signedUrl creds newReq) decoder
+            |> Http.send (Result.mapError convertError >> msg)
 
 
-mapResult : XD.Decoder a -> (Result Error a -> msg) -> Result Http.Error String -> msg
-mapResult decoder msg result =
-    case result of
-        Ok str ->
-            case XmlParser.parse str of
-                Ok xml ->
-                    case XD.decodeXml decoder xml of
-                        Ok decoded ->
-                            msg <| Ok decoded
-
-                        Err error ->
-                            msg <| Err <| InvalidBody <| error ++ " Got: " ++ str
-
-                Err parserError ->
-                    msg <| Err <| InvalidBody <| toString parserError ++ " Got: " ++ str
-
-        Err httpError ->
-            msg <| Err <| handleHttpError httpError
-
-
-handleHttpError : Http.Error -> Error
-handleHttpError error =
+convertError : Http.Error -> Error
+convertError error =
     case error of
         Http.BadStatus { status } ->
             case status.code of
@@ -161,7 +139,7 @@ signedUrl creds req =
         ( ep, cp, signature ) =
             sign creds req
     in
-        "http://"
+        "https://"
             ++ ep
             ++ paapiPath
             ++ ("?" ++ cp)
@@ -182,7 +160,7 @@ sign creds { locale, params } =
         signature =
             canonicalRequest ep cp
                 |> Bytes.fromUTF8
-                |> Crypto.HMAC.digestBytes sha256 (Bytes.fromUTF8 creds.secretAccessKey)
+                |> HMAC.digestBytes HMAC.sha256 (Bytes.fromUTF8 creds.secretAccessKey)
                 |> BinaryBase64.encode
     in
         ( ep, cp, signature )

@@ -30,6 +30,7 @@ module.exports = () => {
           use: {
             loader: 'elm-webpack-loader',
             options: {
+              pathToMake: './bin/unbuffered-elm-make', // Trick elm-make to emit ANSI-colored output
               debug: node_env == 'dev',
               warn: true,
             },

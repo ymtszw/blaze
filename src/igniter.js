@@ -18,7 +18,8 @@ const paapiCredentials = ini.decode(fs.readFileSync(`${home}/.aws/credentials`, 
 const Elm = require('./Igniter.elm')
 
 const startIndexOfAdditionalArgs = 2
-const igniteWorker = Elm.Igniter.worker({
+
+Elm.Igniter.worker({
   paapiCredentials: {
     accessKeyId: paapiCredentials.aws_access_key_id,
     secretAccessKey: paapiCredentials.aws_secret_access_key,
@@ -26,9 +27,3 @@ const igniteWorker = Elm.Igniter.worker({
   },
   argv: process.argv.slice(startIndexOfAdditionalArgs),
 })
-
-// Ports
-
-// Body of the script
-
-igniteWorker.ports.ignite.send('Fire!')

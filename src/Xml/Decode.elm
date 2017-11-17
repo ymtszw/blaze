@@ -27,13 +27,13 @@ Due to the nature of XML, you cannot distinguish a particular tag or tags hold
 whether "singular value" or "list of values", from the structure of XML document itself.
 Since there can be multiple tags with the same name in a same level.
 
-This is contrary to the JSON, where there can be only one field of a paticular key in a level,
+This is opposite to JSON, where there can be only one field of a paticular key in a level,
 and its quantization is obvious from the shape of the value:
 must be a list if it is `[<value>, ...]`, otherwise singular.
 
 For the sake of consistency, our primary "query" function, `path`,
 will always produce list of `Node`s.
-Then they must be decoded using special decoder parts: `singleton` and `list`.
+Then they must be decoded using special decoder parts: `ListDecoder`.
 
 They are used in conjunction with `Decoder`s like so:
 
@@ -43,8 +43,10 @@ They are used in conjunction with `Decoder`s like so:
             (path [ "path", "to", "string", "value" ] (singleton string))
             (path [ "path", "to", "int", "values" ] (list int))
 
+In this example, `singleton` and `list` are `ListDecoder`s.
+
 If you want to perform complex resolution of multiple matches from `path`,
-you can implement variants of `singleton` and `list`: `ListDecoder`s.
+you can implement your own `ListDecoder`s.
 
 -}
 
@@ -193,7 +195,7 @@ singleton : Decoder a -> ListDecoder a
 singleton decoder nodes =
     case nodes of
         [] ->
-            Err "Nodes not found."
+            Err "Node not found."
 
         [ singleton_ ] ->
             decoder singleton_
@@ -304,7 +306,7 @@ Similar to `Json.Decode.lazy`.
     someRecordDecoder =
         map2 SomeRecord
             (path [ "path", "to", "string", "value" ] (singleton string))
-            (path [ "path", "to", "list", "of", "someRecord" ] (list lazy (\_ -> someRecordDecoder)))
+            (path [ "path", "to", "list", "of", "someRecord" ] (list (lazy (\_ -> someRecordDecoder))))
 
 With this, you can avoid "bad-recursion" error on compilation
 which happens when you define nested part of the above decoder as `(list someRecordDecoder)`
@@ -325,7 +327,7 @@ Typical usage:
             (path [ "path", "to", "string", "value" ] (singleton string))
             (path [ "path", "to", "int", "values" ] (list int))
 
-Note that in the `path_` list, you must start from within the root scope.
+Note that in the path list, you must "start" at the root scope.
 For instance, to work with an XML document like:
 
     <Root>

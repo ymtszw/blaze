@@ -13,13 +13,10 @@ This should be unnecessary on Elm 0.19.
 import Platform
 import Json.Decode exposing (..)
 import Time exposing (Time)
-import Date
-import XmlParser
 import PAAPI
-import Xml
+import PAAPI.Kindle as Kindle
 import Igniter.Model exposing (Model)
-import Igniter.Fuse as Fuse
-import Igniter.Kindle as Kindle
+import Igniter.Job as Job exposing (Job)
 
 
 type alias Flags =
@@ -29,55 +26,82 @@ type alias Flags =
 
 
 type Msg
-    = IgniteMsg String
-    | TickMsg Time
-    | SearchRes (Result PAAPI.Error Kindle.SearchResult)
-    | BrowseNodeRes (Result PAAPI.Error Kindle.BrowseNodeLookupResult)
+    = TickMsg Time
+    | PAAPIRes (Result PAAPI.Error Kindle.Response)
 
 
 init : Flags -> ( Model, Cmd Msg )
 init flags =
-    { paapiCredentials = flags.paapiCredentials
-    , options = Igniter.Model.parseOptions flags.argv
-    , previousResult = Nothing
-    , running = False
-    }
+    let
+        options =
+            Igniter.Model.parseOptions flags.argv
+    in
+        { paapiCredentials = flags.paapiCredentials
+        , options = options
+        , rateLimited = False
+        , jobStack = [ firstJob options ]
+        , runningJob = Nothing
+        }
+            |> logWithoutSensitive
+            |> flip (!) []
+
+
+firstJob : Igniter.Model.Options -> Job
+firstJob options =
+    case options.mode of
+        Igniter.Model.Search ->
+            Job.Search Kindle.Comic Kindle.DateRank 1 [ "講談社" ]
+
+        Igniter.Model.BrowseNodeLookup ->
+            Job.BrowseNodeLookup <| browseNode options.argv
+
+
+browseNode : List String -> Kindle.BrowseNode
+browseNode argv =
+    case argv of
+        [] ->
+            Kindle.Root
+
+        str :: _ ->
+            Kindle.toBrowseNode str
+
+
+logWithoutSensitive : Model -> Model
+logWithoutSensitive model =
+    { model | paapiCredentials = PAAPI.Credentials "XXX" "XXX" "XXX" }
         |> Debug.log "Initial Model"
-        |> flip (!) []
+        |> always model
+
+
+
+-- UPDATE
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        IgniteMsg text ->
-            logAndThen text
-                ( { model | running = True }, Cmd.none )
-
         TickMsg time ->
-            logAndThen (Date.fromTime time)
-                ( model, onTick model time )
+            logAndThen time <|
+                onTick model time
 
-        SearchRes (Ok res) ->
+        PAAPIRes (Ok (Kindle.Search res)) ->
             logAndThen res
-                ( { model | previousResult = Just res }, Cmd.none )
+                ( { model
+                    | rateLimited = False
+                    , runningJob = Nothing
+                    , jobStack = scheduleNextSearch model res
+                  }
+                , Cmd.none
+                )
 
-        SearchRes (Err PAAPI.Limit) ->
-            logAndThen "Rate limited..."
-                ( model, Cmd.none )
-
-        SearchRes (Err unexpected) ->
-            logAndThen unexpected
-                ( model, Cmd.none )
-
-        BrowseNodeRes (Ok res) ->
+        PAAPIRes (Ok (Kindle.BrowseNodeLookup res)) ->
             logAndThen res
-                ( { model | running = False }, Cmd.none )
+                ( { model | rateLimited = False, runningJob = Nothing }, Cmd.none )
 
-        BrowseNodeRes (Err PAAPI.Limit) ->
-            logAndThen "Rate limited..."
-                ( model, Cmd.none )
+        PAAPIRes (Err PAAPI.Limit) ->
+            logRateLimit model
 
-        BrowseNodeRes (Err unexpected) ->
+        PAAPIRes (Err unexpected) ->
             logAndThen unexpected
                 ( model, Cmd.none )
 
@@ -87,51 +111,90 @@ logAndThen text ret =
     Debug.log "Info" text |> always ret
 
 
-onTick : Model -> Time -> Cmd Msg
-onTick ({ paapiCredentials, options } as model) time =
-    case options.mode of
-        Igniter.Model.Search ->
-            testPaapi model time
-
-        Igniter.Model.LookupBrowseNode ->
-            let
-                browseNode =
-                    case options.argv of
-                        [] ->
-                            Kindle.Root
-
-                        str :: _ ->
-                            Kindle.toBrowseNode str
-            in
-                Kindle.lookupBrowseNode paapiCredentials BrowseNodeRes time browseNode
+logRateLimit : Model -> ( Model, Cmd Msg )
+logRateLimit model =
+    if model.rateLimited then
+        ( repush model, Cmd.none )
+    else
+        logAndThen "Rate limited..."
+            ( repush { model | rateLimited = True }, Cmd.none )
 
 
-testPaapi : Model -> Time -> Cmd Msg
-testPaapi { paapiCredentials, previousResult } time =
+repush : Model -> Model
+repush ({ jobStack, runningJob } as model) =
     let
-        searchPage page =
-            Kindle.search paapiCredentials SearchRes time Kindle.Root page [ "衿沢世衣子" ]
-    in
-        case previousResult of
-            Nothing ->
-                searchPage 1
+        newStack =
+            case runningJob of
+                Just j ->
+                    j :: jobStack
 
-            Just { totalPages, currentPage } ->
-                if totalPages == currentPage || currentPage == 10 then
-                    Cmd.none
-                else
-                    searchPage (currentPage + 1)
+                Nothing ->
+                    jobStack
+    in
+        { model | jobStack = newStack, runningJob = Nothing }
+
+
+onTick : Model -> Time -> ( Model, Cmd Msg )
+onTick ({ jobStack, runningJob } as model) time =
+    case ( jobStack, runningJob ) of
+        ( j :: js, Nothing ) ->
+            ( { model | jobStack = js, runningJob = Just j }
+            , runJob model time j
+            )
+
+        ( _, _ ) ->
+            ( model, Cmd.none )
+
+
+runJob : Model -> Time -> Job -> Cmd Msg
+runJob { paapiCredentials } time job =
+    case job of
+        Job.Search browseNode sort page keywords ->
+            Kindle.search paapiCredentials PAAPIRes time browseNode sort page keywords
+
+        Job.BrowseNodeLookup browseNode ->
+            Kindle.browseNodeLookup paapiCredentials PAAPIRes time browseNode
+
+
+scheduleNextSearch : Model -> { x | totalPages : Int } -> Job.JobStack
+scheduleNextSearch { jobStack, runningJob } { totalPages } =
+    case Maybe.andThen (Job.nextPage totalPages) runningJob of
+        Nothing ->
+            jobStack
+
+        Just j ->
+            j :: jobStack
+
+
+
+-- SUBSCRIPTIONS
 
 
 subscriptions : Model -> Sub Msg
-subscriptions ({ running } as model) =
-    Fuse.ignite IgniteMsg
-        :: (if running then
-                [ Time.every (1 * Time.second) TickMsg ]
-            else
-                []
-           )
+subscriptions model =
+    []
+        |> listenTick model
         |> Sub.batch
+
+
+listenTick : Model -> List (Sub Msg) -> List (Sub Msg)
+listenTick { jobStack, runningJob, rateLimited } subs =
+    if List.isEmpty jobStack && runningJob == Nothing then
+        subs
+    else
+        Time.every (interval rateLimited) TickMsg :: subs
+
+
+interval : Bool -> Time
+interval rateLimited =
+    if rateLimited then
+        1000 * Time.millisecond
+    else
+        200 * Time.millisecond
+
+
+
+-- MAIN
 
 
 main : Platform.Program Flags Model Msg

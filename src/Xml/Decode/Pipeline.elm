@@ -28,7 +28,7 @@ requiredPath path_ listDecoderA =
     map2 (|>) (path path_ listDecoderA)
 
 
-{-| Decodes value at optional XML path into `Maybe` value.
+{-| Decodes value at possible XML path into `Maybe` value.
 
 If you want to apply default value when the node is missing,
 use `optionalWith`.

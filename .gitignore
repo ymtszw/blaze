@@ -2,3 +2,4 @@ dist/
 *.db
 paapi_credentials.json
 doc*.json
+npm-debug.log

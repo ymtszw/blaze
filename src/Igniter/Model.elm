@@ -1,14 +1,15 @@
-module Igniter.Model exposing (Model, Mode(..), parseOptions)
+module Igniter.Model exposing (Model, Options, Mode(..), parseOptions)
 
 import PAAPI
-import Igniter.Kindle
+import Igniter.Job exposing (Job, JobStack)
 
 
 type alias Model =
     { paapiCredentials : PAAPI.Credentials
     , options : Options
-    , previousResult : Maybe Igniter.Kindle.SearchResult
-    , running : Bool
+    , rateLimited : Bool
+    , jobStack : JobStack
+    , runningJob : Maybe Job
     }
 
 
@@ -20,7 +21,7 @@ type alias Options =
 
 type Mode
     = Search
-    | LookupBrowseNode
+    | BrowseNodeLookup
 
 
 parseOptions : List String -> Options
@@ -31,6 +32,6 @@ parseOptions argv =
 
         mode :: tail ->
             if String.toLower mode == "browsenode" then
-                Options LookupBrowseNode tail
+                Options BrowseNodeLookup tail
             else
                 Options Search []

@@ -3,11 +3,10 @@ module PAAPI.Kindle
         ( BrowseNode(..)
         , Sort(..)
         , Item
-        , SearchResult
-        , BrowseNodeLookupResult
+        , Response(..)
         , toBrowseNode
         , search
-        , lookupBrowseNode
+        , browseNodeLookup
         )
 
 {-| Wrapper client module for PAAPI that queries for items in Kindle store.
@@ -56,7 +55,6 @@ KindleStore
 
 import Date exposing (Date)
 import Time exposing (Time)
-import XmlParser exposing (Xml, Node(..))
 import Util exposing (KVS, (=>))
 import Xml.Decode as XD
 import Xml.Decode.Pipeline as XDP
@@ -153,28 +151,46 @@ type alias Item =
     }
 
 
-type alias SearchResult =
-    { totalPages : Int
-    , currentPage : Int
-    , items : List Item
-    }
-
-
-type alias BrowseNodeLookupResult =
-    { id : String
-    , name : String
-    , children : List AdjacentBrowseNode
-    , ancestors : List AdjacentBrowseNode
-    }
+type Response
+    = Search
+        { totalPages : Int
+        , currentPage : Int
+        , items : List Item
+        }
+    | BrowseNodeLookup
+        { id : String
+        , name : String
+        , children : List AdjacentBrowseNode
+        , ancestors : List AdjacentBrowseNode
+        }
 
 
 type alias AdjacentBrowseNode =
     { id : String, name : String }
 
 
+searchResponse : Int -> Int -> List Item -> Response
+searchResponse tp cp is =
+    Search
+        { totalPages = tp
+        , currentPage = cp
+        , items = is
+        }
+
+
+browseNodeLookupResponse : String -> String -> List AdjacentBrowseNode -> List AdjacentBrowseNode -> Response
+browseNodeLookupResponse i n c a =
+    BrowseNodeLookup
+        { id = i
+        , name = n
+        , children = c
+        , ancestors = a
+        }
+
+
 {-| Searches items with given parameters.
 -}
-search : PAAPI.Credentials -> (Result PAAPI.Error SearchResult -> msg) -> Time -> BrowseNode -> Sort -> Int -> List String -> Cmd msg
+search : PAAPI.Credentials -> (Result PAAPI.Error Response -> msg) -> Time -> BrowseNode -> Sort -> Int -> List String -> Cmd msg
 search creds msg time browseNode sort_ page keywords =
     PAAPI.get creds
         searchResultDecoder
@@ -185,15 +201,15 @@ search creds msg time browseNode sort_ page keywords =
         }
 
 
-searchResultDecoder : XD.Decoder SearchResult
+searchResultDecoder : XD.Decoder Response
 searchResultDecoder =
     XD.path [ "Items" ] <|
         XD.singleton <|
-            (XD.succeed SearchResult
+            (XD.succeed searchResponse
                 |> XDP.requiredPath [ "TotalPages" ] (XD.singleton XD.int)
                 |> XDP.optionalPath [ "Request", "ItemSearchRequest", "ItemPage" ] (XD.singleton XD.int) 1
+                -- Using leakyList; Ignores Items without essential properties
                 |> XDP.requiredPath [ "Item" ] (XD.leakyList itemDecoder)
-             -- Ignores Items without essential properties
             )
 
 
@@ -215,24 +231,25 @@ searchParams browseNode sort_ page keywords =
     , "BrowseNode" => browseNodeId browseNode
     , "Sort" => sort sort_
     , "ItemPage" => toString page
-    , "Power" => power
+    , "Power" => power keywords
     ]
 
 
-power : String
-power =
-    [ "not title: 分冊"
-    , "not title: 雑誌"
+power : List String -> String
+power keywords =
+    [ "not 分冊"
+    , "not 雑誌"
+    , "not 画集"
     , "pubdate: during 11-2017"
-    , "publisher: 講談社"
     ]
+        |> (++) keywords
         |> String.join " and "
 
 
 {-| Retrieves existing BrowseNodes relative to the given `BrowseNode`.
 -}
-lookupBrowseNode : PAAPI.Credentials -> (Result PAAPI.Error BrowseNodeLookupResult -> msg) -> Time -> BrowseNode -> Cmd msg
-lookupBrowseNode creds msg time browseNode =
+browseNodeLookup : PAAPI.Credentials -> (Result PAAPI.Error Response -> msg) -> Time -> BrowseNode -> Cmd msg
+browseNodeLookup creds msg time browseNode =
     PAAPI.get creds
         browseNodeLookupResultDecoder
         msg
@@ -242,11 +259,11 @@ lookupBrowseNode creds msg time browseNode =
         }
 
 
-browseNodeLookupResultDecoder : XD.Decoder BrowseNodeLookupResult
+browseNodeLookupResultDecoder : XD.Decoder Response
 browseNodeLookupResultDecoder =
     XD.path [ "BrowseNodes", "BrowseNode" ] <|
         XD.singleton <|
-            (XD.succeed BrowseNodeLookupResult
+            (XD.succeed browseNodeLookupResponse
                 |> XDP.requiredPath [ "BrowseNodeId" ] (XD.singleton XD.string)
                 |> XDP.requiredPath [ "Name" ] (XD.singleton XD.string)
                 |> XDP.optionalPath [ "Children", "BrowseNode" ] (XD.list adjacentBrowseNodeDecoder) []
