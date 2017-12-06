@@ -1,0 +1,5 @@
+{
+  "excludedPaths": [
+    "src/elm-binary-base64"
+  ]
+}

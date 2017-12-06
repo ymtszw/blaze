@@ -1,8 +1,8 @@
 {
   "name": "blaze",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Better Kindle comic recommender",
-  "main": "src/index.js",
+  "main": "src/igniter.js",
   "scripts": {
     "build": "npm run build:dev --",
     "build:dev": "NODE_ENV=dev webpack",
@@ -10,9 +10,10 @@
     "dynamo": "npm run dynamo:dev --",
     "dynamo:dev": "java -Djava.library.path=/opt/dynamodb_local/DynamoDBLocal_lib -jar /opt/dynamodb_local/DynamoDBLocal.jar -sharedDb",
     "clean": "rm -rf dist/",
-    "elm-package": "elm-package",
-    "elm-repl": "elm-repl",
-    "test": "elm-test"
+    "package": "elm-package",
+    "repl": "elm-repl",
+    "test": "elm-test",
+    "analyse": "elm-analyse"
   },
   "keywords": [
     "Elm",
@@ -20,11 +21,12 @@
     "Crawler"
   ],
   "author": "ymtszw",
-  "license": "MIT",
+  "license": "BSD-3-Clause",
   "repository": "https://github.com/ymtszw/blaze.git",
   "devDependencies": {
     "aws-sdk": "^2.135.0",
     "elm": "^0.18.0",
+    "elm-analyse": "^0.12.1",
     "elm-test": "^0.18.9",
     "elm-webpack-loader": "^4.3.1",
     "eslint": "^4.8.0",

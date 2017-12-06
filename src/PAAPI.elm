@@ -15,7 +15,7 @@ It uses GET request with query strings in URL.
 import Regex
 import Time exposing (Time)
 import Http
-import Http_
+import Http.Xml
 import Crypto.HMAC as HMAC
 import Word.Bytes as Bytes
 import BinaryBase64
@@ -112,7 +112,7 @@ get creds decoder msg time req =
         newReq =
             { req | params = ( "Timestamp", timestamp ) :: req.params }
     in
-        Http_.getXml (signedUrl creds newReq) decoder
+        Http.Xml.get (signedUrl creds newReq) decoder
             |> Http.send (Result.mapError convertError >> msg)
 
 

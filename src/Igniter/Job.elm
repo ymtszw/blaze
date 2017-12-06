@@ -22,7 +22,10 @@ nextPage totalPages job =
                 Nothing
 
             Search bn s pa pu kw ->
-                Just (Search bn s (pa + 1) pu kw)
+                if pa >= totalPages then
+                    Nothing
+                else
+                    Just <| Search bn s (pa + 1) pu kw
 
             _ ->
                 Nothing

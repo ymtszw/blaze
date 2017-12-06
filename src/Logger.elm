@@ -13,10 +13,20 @@ info text ret =
 
 dumpSearchResponse : { x | totalPages : Int, currentPage : Int, items : List Kindle.Item } -> b -> b
 dumpSearchResponse { totalPages, currentPage, items } ret =
-    items
-        |> List.map logItem
-        |> always (Debug.log "Search Result" (toString currentPage ++ "/" ++ toString totalPages))
+    List.map logItem items
+        |> (::) (logPage totalPages currentPage)
         |> always ret
+
+
+logPage : Int -> Int -> String
+logPage totalPages currentPage =
+    Debug.log "Search Result" <|
+        case totalPages of
+            0 ->
+                "Not found"
+
+            _ ->
+                toString currentPage ++ "/" ++ toString totalPages
 
 
 logItem : { x | asin : String, title : String, authors : List String, releaseDate : Date.Date } -> String
