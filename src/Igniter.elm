@@ -1,4 +1,4 @@
-module Igniter exposing (..)
+module Igniter exposing (main)
 
 {-| Amazon Product Advertising API (PAAPI) crawler.
 
@@ -13,6 +13,8 @@ This should be unnecessary on Elm 0.19.
 import Platform
 import Json.Decode exposing (..)
 import Time exposing (Time)
+import Task exposing (Task)
+import Rocket exposing (..)
 import Logger as L
 import PAAPI
 import PAAPI.Kindle as Kindle
@@ -22,6 +24,7 @@ import Igniter.Job as Job exposing (Job)
 
 type alias Flags =
     { paapiCredentials : PAAPI.Credentials
+    , associateTag : PAAPI.AssociateTag
     , argv : List String
     }
 
@@ -31,27 +34,28 @@ type Msg
     | PAAPIRes (Result PAAPI.Error Kindle.Response)
 
 
-init : Flags -> ( Model, Cmd Msg )
+init : Flags -> ( Model, List (Cmd Msg) )
 init flags =
     let
         options =
             Igniter.Model.parseOptions flags.argv
     in
         { paapiCredentials = flags.paapiCredentials
+        , associateTag = flags.associateTag
         , options = options
         , rateLimited = False
         , jobStack = [ firstJob options ]
         , runningJob = Nothing
         }
             |> logWithoutSensitive
-            |> flip (!) []
+            => []
 
 
 firstJob : Igniter.Model.Options -> Job
 firstJob options =
     case options.mode of
         Igniter.Model.Search ->
-            Job.Search Kindle.Boys Kindle.DateRank 1 "講談社" []
+            Job.Search Kindle.Boys Kindle.DateRank 1 "小学館" []
 
         Igniter.Model.BrowseNodeLookup ->
             Job.BrowseNodeLookup <| browseNode options.argv
@@ -69,7 +73,7 @@ browseNode argv =
 
 logWithoutSensitive : Model -> Model
 logWithoutSensitive model =
-    { model | paapiCredentials = PAAPI.Credentials "XXX" "XXX" "XXX" }
+    { model | paapiCredentials = PAAPI.Credentials "XXX" "XXX" }
         |> Debug.log "Initial Model"
         |> always model
 
@@ -78,7 +82,7 @@ logWithoutSensitive model =
 -- UPDATE
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, List (Cmd Msg) )
 update msg model =
     case msg of
         TickMsg time ->
@@ -86,27 +90,29 @@ update msg model =
                 onTick model time
 
         PAAPIRes (Ok (Kindle.Search res)) ->
-            L.dumpSearchResponse res
-                ( { model
-                    | rateLimited = False
-                    , runningJob = Nothing
-                    , jobStack = scheduleNextSearch model res
-                  }
-                , Cmd.none
-                )
+            { model
+                | rateLimited = False
+                , runningJob = Nothing
+                , jobStack = scheduleNextSearch model res
+            }
+                |> L.dumpSearchResponse res
+                => []
 
         PAAPIRes (Ok (Kindle.BrowseNodeLookup res)) ->
-            L.info res
-                ( { model | rateLimited = False, runningJob = Nothing }, Cmd.none )
+            { model | rateLimited = False, runningJob = Nothing }
+                |> L.info res
+                => []
 
-        PAAPIRes (Err PAAPI.Limit) ->
-            L.rateLimit model.rateLimited
-                ( repush { model | rateLimited = True }, Cmd.none )
+        PAAPIRes (Err PAAPI.RateLimit) ->
+            { model | rateLimited = True }
+                |> repush
+                |> L.rateLimit model.rateLimited
+                => []
 
-        PAAPIRes (Err (PAAPI.Fail httpError)) ->
-            L.httpError False
-                httpError
-                ( { model | runningJob = Nothing }, Cmd.none )
+        PAAPIRes (Err (PAAPI.HttpError httpError)) ->
+            { model | runningJob = Nothing }
+                |> L.httpError False httpError
+                => []
 
 
 repush : Model -> Model
@@ -123,26 +129,25 @@ repush ({ jobStack, runningJob } as model) =
         { model | jobStack = newStack, runningJob = Nothing }
 
 
-onTick : Model -> Time -> ( Model, Cmd Msg )
+onTick : Model -> Time -> ( Model, List (Cmd Msg) )
 onTick ({ jobStack, runningJob } as model) time =
     case ( jobStack, runningJob ) of
         ( j :: js, Nothing ) ->
-            ( { model | jobStack = js, runningJob = Just j }
-            , runJob model time j
-            )
+            { model | jobStack = js, runningJob = Just j }
+                => [ jobTask model j |> Task.attempt PAAPIRes ]
 
         ( _, _ ) ->
-            ( model, Cmd.none )
+            model => []
 
 
-runJob : Model -> Time -> Job -> Cmd Msg
-runJob { paapiCredentials } time job =
+jobTask : Model -> Job -> Task PAAPI.Error Kindle.Response
+jobTask { paapiCredentials, associateTag } job =
     case job of
         Job.Search browseNode sort page publisher keywords ->
-            Kindle.search paapiCredentials PAAPIRes time browseNode sort page publisher keywords
+            Kindle.search paapiCredentials associateTag browseNode sort page publisher keywords
 
         Job.BrowseNodeLookup browseNode ->
-            Kindle.browseNodeLookup paapiCredentials PAAPIRes time browseNode
+            Kindle.browseNodeLookup paapiCredentials associateTag browseNode
 
 
 scheduleNextSearch : Model -> { x | totalPages : Int } -> Job.JobStack
@@ -189,7 +194,7 @@ interval rateLimited =
 main : Platform.Program Flags Model Msg
 main =
     Platform.programWithFlags
-        { init = init
-        , update = update
+        { init = init >> batchInit
+        , update = update >> batchUpdate
         , subscriptions = subscriptions
         }

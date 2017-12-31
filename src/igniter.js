@@ -23,7 +23,7 @@ Elm.Igniter.worker({
   paapiCredentials: {
     accessKeyId: paapiCredentials.aws_access_key_id,
     secretAccessKey: paapiCredentials.aws_secret_access_key,
-    associateTag: paapiCredentials.associate_tag,
   },
+  associateTag: paapiCredentials.associate_tag,
   argv: process.argv.slice(startIndexOfAdditionalArgs),
 })

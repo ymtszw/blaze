@@ -55,8 +55,9 @@ Although, in order to use Power Search feature, we need to use SearchIndex: Book
 -}
 
 import Date exposing (Date)
-import Time exposing (Time)
-import Util exposing (KVS, (=>))
+import Task exposing (Task)
+import Rocket exposing ((=>))
+import Util exposing (KVS)
 import Xml.Decode as XD
 import Xml.Decode.Pipeline as XDP
 import PAAPI
@@ -228,15 +229,26 @@ browseNodeLookupResponse i n c a =
 
 {-| Searches items with given parameters.
 -}
-search : PAAPI.Credentials -> (Result PAAPI.Error Response -> msg) -> Time -> BrowseNode -> Sort -> Int -> String -> List String -> Cmd msg
-search creds msg time browseNode sort_ page publisher keywords =
-    PAAPI.get creds
+search :
+    PAAPI.Credentials
+    -> PAAPI.AssociateTag
+    -> BrowseNode
+    -> Sort
+    -> Int
+    -> String
+    -> List String
+    -> Task PAAPI.Error Response
+search creds tag browseNode sort_ page publisher keywords =
+    PAAPI.doGet PAAPI.JP
+        creds
+        tag
         searchResultDecoder
-        msg
-        time
-        { locale = PAAPI.JP
-        , params = searchParams browseNode sort_ page publisher keywords
-        }
+        (searchParams browseNode
+            sort_
+            page
+            publisher
+            keywords
+        )
 
 
 searchResultDecoder : XD.Decoder Response
@@ -297,15 +309,17 @@ power publisher keywords =
 
 {-| Retrieves existing BrowseNodes relative to the given `BrowseNode`.
 -}
-browseNodeLookup : PAAPI.Credentials -> (Result PAAPI.Error Response -> msg) -> Time -> BrowseNode -> Cmd msg
-browseNodeLookup creds msg time browseNode =
-    PAAPI.get creds
+browseNodeLookup :
+    PAAPI.Credentials
+    -> PAAPI.AssociateTag
+    -> BrowseNode
+    -> Task PAAPI.Error Response
+browseNodeLookup creds tag browseNode =
+    PAAPI.doGet PAAPI.JP
+        creds
+        tag
         browseNodeLookupResultDecoder
-        msg
-        time
-        { locale = PAAPI.JP
-        , params = browseNodeParams browseNode
-        }
+        (browseNodeParams browseNode)
 
 
 browseNodeLookupResultDecoder : XD.Decoder Response

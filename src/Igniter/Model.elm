@@ -6,6 +6,7 @@ import Igniter.Job exposing (Job, JobStack)
 
 type alias Model =
     { paapiCredentials : PAAPI.Credentials
+    , associateTag : PAAPI.AssociateTag
     , options : Options
     , rateLimited : Bool
     , jobStack : JobStack
