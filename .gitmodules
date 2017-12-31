@@ -1,3 +1,0 @@
-[submodule "src/elm-binary-base64"]
-	path = src/elm-binary-base64
-	url = https://github.com/newlandsvalley/elm-binary-base64.git
