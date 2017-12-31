@@ -54,7 +54,7 @@ firstJob : Igniter.Model.Options -> Job
 firstJob options =
     case options.mode of
         Igniter.Model.Search ->
-            Job.Search Kindle.Boys Kindle.DateRank 1 "小学館" []
+            Job.Search Kindle.Boys Kindle.DateRank 1 [ "pubdate: during 12-2017", "publisher: 小学館" ]
 
         Igniter.Model.BrowseNodeLookup ->
             Job.BrowseNodeLookup <| browseNode options.argv

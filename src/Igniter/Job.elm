@@ -6,7 +6,7 @@ import PAAPI.Kindle as Kindle
 
 
 type Job
-    = Search Kindle.BrowseNode Kindle.Sort Int String (List String)
+    = Search Kindle.BrowseNode Kindle.Sort Int (List String)
     | BrowseNodeLookup Kindle.BrowseNode
     | ItemLookup (List String)
 
@@ -18,8 +18,8 @@ type alias JobStack =
 task : PAAPI.Credentials -> PAAPI.AssociateTag -> Job -> Task PAAPI.Error Kindle.Response
 task paapiCredentials associateTag job =
     case job of
-        Search browseNode sort page publisher keywords ->
-            Kindle.search paapiCredentials associateTag browseNode sort page publisher keywords
+        Search browseNode sort page params ->
+            Kindle.search paapiCredentials associateTag browseNode sort page params
 
         BrowseNodeLookup browseNode ->
             Kindle.browseNodeLookup paapiCredentials associateTag browseNode
@@ -34,14 +34,14 @@ nextPage totalPages job =
         Nothing
     else
         case job of
-            Search _ _ 10 _ _ ->
+            Search _ _ 10 _ ->
                 Nothing
 
-            Search bn s pa pu kw ->
-                if pa >= totalPages then
+            Search bn s page params ->
+                if page >= totalPages then
                     Nothing
                 else
-                    Just <| Search bn s (pa + 1) pu kw
+                    Just <| Search bn s (page + 1) params
 
             _ ->
                 Nothing

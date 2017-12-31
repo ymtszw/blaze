@@ -4,7 +4,6 @@ module PAAPI.Kindle
         , Sort(..)
         , Item
         , Response(..)
-        , comicNodes
         , toBrowseNode
         , search
         , browseNodeLookup
@@ -229,10 +228,9 @@ search :
     -> BrowseNode
     -> Sort
     -> Int
-    -> String
     -> List String
     -> Task PAAPI.Error Response
-search creds tag browseNode sort_ page publisher keywords =
+search creds tag browseNode sort_ page powerSearchParams =
     PAAPI.doGet PAAPI.JP
         creds
         tag
@@ -240,8 +238,7 @@ search creds tag browseNode sort_ page publisher keywords =
         (searchParams browseNode
             sort_
             page
-            publisher
-            keywords
+            powerSearchParams
         )
 
 
@@ -277,15 +274,15 @@ linksDecoder =
         |: XD.withDefault "https://example.com/assets/image/fallback/large.png" (XD.path [ "LargeImage", "URL" ] (XD.single XD.string))
 
 
-searchParams : BrowseNode -> Sort -> Int -> String -> List String -> KVS
-searchParams browseNode sort_ page publisher keywords =
+searchParams : BrowseNode -> Sort -> Int -> List String -> KVS
+searchParams browseNode sort_ page powerSearchParams =
     [ "Operation" => "ItemSearch"
     , "SearchIndex" => "Books" -- Required for Power Search
     , "ResponseGroup" => itemResponseGroup
     , "BrowseNode" => browseNodeId browseNode
     , "Sort" => sort sort_
     , "ItemPage" => toString page
-    , "Power" => power publisher keywords
+    , "Power" => power powerSearchParams
     ]
 
 
@@ -294,16 +291,14 @@ itemResponseGroup =
     "Request,ItemAttributes,Images"
 
 
-power : String -> List String -> String
-power publisher keywords =
+power : List String -> String
+power powerSearchParams =
     [ "not 分冊"
     , "not 雑誌"
     , "not 画集"
     , "not まとめ買い"
-    , "pubdate: during 11-2017"
-    , "publisher: " ++ publisher
     ]
-        |> (++) keywords
+        |> (++) powerSearchParams
         |> String.join " and "
 
 
