@@ -1,3 +1,5 @@
+// Example code for Qiita article
+
 const Elm = require('./Worker.elm')
 
 const worker = Elm.Worker.worker()

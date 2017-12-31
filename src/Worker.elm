@@ -1,5 +1,8 @@
 port module Worker exposing (main)
 
+{-| Example code for Qiita article
+-}
+
 import Platform
 import Json.Decode
 import Time exposing (Time)
