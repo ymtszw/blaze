@@ -130,24 +130,14 @@ repush ({ jobStack, runningJob } as model) =
 
 
 onTick : Model -> Time -> ( Model, List (Cmd Msg) )
-onTick ({ jobStack, runningJob } as model) time =
+onTick ({ paapiCredentials, associateTag, jobStack, runningJob } as model) time =
     case ( jobStack, runningJob ) of
         ( j :: js, Nothing ) ->
             { model | jobStack = js, runningJob = Just j }
-                => [ jobTask model j |> Task.attempt PAAPIRes ]
+                => [ Job.task paapiCredentials associateTag j |> Task.attempt PAAPIRes ]
 
         ( _, _ ) ->
             model => []
-
-
-jobTask : Model -> Job -> Task PAAPI.Error Kindle.Response
-jobTask { paapiCredentials, associateTag } job =
-    case job of
-        Job.Search browseNode sort page publisher keywords ->
-            Kindle.search paapiCredentials associateTag browseNode sort page publisher keywords
-
-        Job.BrowseNodeLookup browseNode ->
-            Kindle.browseNodeLookup paapiCredentials associateTag browseNode
 
 
 scheduleNextSearch : Model -> { x | totalPages : Int } -> Job.JobStack

@@ -59,7 +59,7 @@ import Task exposing (Task)
 import Rocket exposing ((=>))
 import Util exposing (KVS)
 import Xml.Decode as XD
-import Xml.Decode.Pipeline as XDP
+import Xml.Decode.Extra exposing ((|:))
 import PAAPI
 
 
@@ -173,17 +173,23 @@ sort sort_ =
 
 
 type Response
-    = Search
-        { totalPages : Int
-        , currentPage : Int
-        , items : List Item
-        }
-    | BrowseNodeLookup
-        { id : String
-        , name : String
-        , children : List AdjacentBrowseNode
-        , ancestors : List AdjacentBrowseNode
-        }
+    = Search SearchResponse
+    | BrowseNodeLookup BrowseNodeLookupResponse
+
+
+type alias SearchResponse =
+    { totalPages : Int
+    , currentPage : Int
+    , items : List Item
+    }
+
+
+type alias BrowseNodeLookupResponse =
+    { id : String
+    , name : String
+    , children : List AdjacentBrowseNode
+    , ancestors : List AdjacentBrowseNode
+    }
 
 
 type alias Item =
@@ -206,25 +212,6 @@ type alias Links =
 
 type alias AdjacentBrowseNode =
     { id : String, name : String }
-
-
-searchResponse : Int -> Int -> List Item -> Response
-searchResponse tp cp is =
-    Search
-        { totalPages = tp
-        , currentPage = cp
-        , items = is
-        }
-
-
-browseNodeLookupResponse : String -> String -> List AdjacentBrowseNode -> List AdjacentBrowseNode -> Response
-browseNodeLookupResponse i n c a =
-    BrowseNodeLookup
-        { id = i
-        , name = n
-        , children = c
-        , ancestors = a
-        }
 
 
 {-| Searches items with given parameters.
@@ -253,33 +240,34 @@ search creds tag browseNode sort_ page publisher keywords =
 
 searchResultDecoder : XD.Decoder Response
 searchResultDecoder =
-    XD.path [ "Items" ] <|
-        XD.single <|
-            (XD.succeed searchResponse
-                |> XDP.requiredPath [ "TotalPages" ] (XD.single XD.int)
-                |> XDP.optionalPath [ "Request", "ItemSearchRequest", "ItemPage" ] (XD.single XD.int) 1
-                |> XDP.requiredPath [ "Item" ] (XD.list itemDecoder)
-            )
+    XD.map Search <|
+        XD.path [ "Items" ] <|
+            XD.single <|
+                (XD.succeed SearchResponse
+                    |: XD.path [ "TotalPages" ] (XD.single XD.int)
+                    |: XD.withDefault 1 (XD.path [ "Request", "ItemSearchRequest", "ItemPage" ] (XD.single XD.int))
+                    |: XD.path [ "Item" ] (XD.list itemDecoder)
+                )
 
 
 itemDecoder : XD.Decoder Item
 itemDecoder =
     XD.succeed Item
-        |> XDP.requiredPath [ "ASIN" ] (XD.single XD.string)
-        |> XDP.requiredPath [ "ItemAttributes", "Title" ] (XD.single XD.string)
-        |> XDP.requiredPath [ "ItemAttributes", "ReleaseDate" ] (XD.single XD.date)
-        |> XDP.requiredPath [ "ItemAttributes", "Author" ] (XD.list XD.string)
-        |> XDP.optionalPath [ "ItemAttributes", "Publisher" ] (XD.single XD.string) "N/A"
-        |> XD.map2 (|>) linksDecoder
+        |: XD.path [ "ASIN" ] (XD.single XD.string)
+        |: XD.path [ "ItemAttributes", "Title" ] (XD.single XD.string)
+        |: XD.path [ "ItemAttributes", "ReleaseDate" ] (XD.single XD.date)
+        |: XD.path [ "ItemAttributes", "Author" ] (XD.list XD.string)
+        |: XD.withDefault "N/A" (XD.path [ "ItemAttributes", "Publisher" ] (XD.single XD.string))
+        |: linksDecoder
 
 
 linksDecoder : XD.Decoder Links
 linksDecoder =
     XD.succeed Links
-        |> XDP.requiredPath [ "DetailPageURL" ] (XD.single XD.string)
-        |> XDP.optionalPath [ "SmallImage", "URL" ] (XD.single XD.string) "https://example.com/assets/image/fallback/small.png"
-        |> XDP.optionalPath [ "MediumImage", "URL" ] (XD.single XD.string) "https://example.com/assets/image/fallback/medium.png"
-        |> XDP.optionalPath [ "LargeImage", "URL" ] (XD.single XD.string) "https://example.com/assets/image/fallback/large.png"
+        |: XD.path [ "DetailPageURL" ] (XD.single XD.string)
+        |: XD.withDefault "https://example.com/assets/image/fallback/small.png" (XD.path [ "SmallImage", "URL" ] (XD.single XD.string))
+        |: XD.withDefault "https://example.com/assets/image/fallback/medium.png" (XD.path [ "MediumImage", "URL" ] (XD.single XD.string))
+        |: XD.withDefault "https://example.com/assets/image/fallback/large.png" (XD.path [ "LargeImage", "URL" ] (XD.single XD.string))
 
 
 searchParams : BrowseNode -> Sort -> Int -> String -> List String -> KVS
@@ -324,21 +312,22 @@ browseNodeLookup creds tag browseNode =
 
 browseNodeLookupResultDecoder : XD.Decoder Response
 browseNodeLookupResultDecoder =
-    XD.path [ "BrowseNodes", "BrowseNode" ] <|
-        XD.single <|
-            (XD.succeed browseNodeLookupResponse
-                |> XDP.requiredPath [ "BrowseNodeId" ] (XD.single XD.string)
-                |> XDP.requiredPath [ "Name" ] (XD.single XD.string)
-                |> XDP.optionalPath [ "Children", "BrowseNode" ] (XD.list adjacentBrowseNodeDecoder) []
-                |> XDP.optionalPath [ "Ancestors", "BrowseNode" ] (XD.list adjacentBrowseNodeDecoder) []
-            )
+    XD.map BrowseNodeLookup <|
+        XD.path [ "BrowseNodes", "BrowseNode" ] <|
+            XD.single <|
+                (XD.succeed BrowseNodeLookupResponse
+                    |: XD.path [ "BrowseNodeId" ] (XD.single XD.string)
+                    |: XD.path [ "Name" ] (XD.single XD.string)
+                    |: XD.path [ "Children", "BrowseNode" ] (XD.list adjacentBrowseNodeDecoder)
+                    |: XD.path [ "Ancestors", "BrowseNode" ] (XD.list adjacentBrowseNodeDecoder)
+                )
 
 
 adjacentBrowseNodeDecoder : XD.Decoder AdjacentBrowseNode
 adjacentBrowseNodeDecoder =
     XD.succeed AdjacentBrowseNode
-        |> XDP.requiredPath [ "BrowseNodeId" ] (XD.single XD.string)
-        |> XDP.requiredPath [ "Name" ] (XD.single XD.string)
+        |: XD.path [ "BrowseNodeId" ] (XD.single XD.string)
+        |: XD.path [ "Name" ] (XD.single XD.string)
 
 
 browseNodeParams : BrowseNode -> KVS

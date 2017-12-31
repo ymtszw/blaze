@@ -1,5 +1,7 @@
-module Igniter.Job exposing (Job(..), JobStack, nextPage)
+module Igniter.Job exposing (Job(..), JobStack, task, nextPage)
 
+import Task exposing (Task)
+import PAAPI
 import PAAPI.Kindle as Kindle
 
 
@@ -10,6 +12,16 @@ type Job
 
 type alias JobStack =
     List Job
+
+
+task : PAAPI.Credentials -> PAAPI.AssociateTag -> Job -> Task PAAPI.Error Kindle.Response
+task paapiCredentials associateTag job =
+    case job of
+        Search browseNode sort page publisher keywords ->
+            Kindle.search paapiCredentials associateTag browseNode sort page publisher keywords
+
+        BrowseNodeLookup browseNode ->
+            Kindle.browseNodeLookup paapiCredentials associateTag browseNode
 
 
 nextPage : Int -> Job -> Maybe Job
