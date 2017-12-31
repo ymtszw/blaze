@@ -11,7 +11,6 @@ This should be unnecessary on Elm 0.19.
 -}
 
 import Platform
-import Json.Decode exposing (..)
 import Time exposing (Time)
 import Task exposing (Task)
 import Rocket exposing (..)
@@ -60,6 +59,9 @@ firstJob options =
         Igniter.Model.BrowseNodeLookup ->
             Job.BrowseNodeLookup <| browseNode options.argv
 
+        Igniter.Model.ItemLookup ->
+            Job.ItemLookup options.argv
+
 
 browseNode : List String -> Kindle.BrowseNode
 browseNode argv =
@@ -99,6 +101,11 @@ update msg model =
                 => []
 
         PAAPIRes (Ok (Kindle.BrowseNodeLookup res)) ->
+            { model | rateLimited = False, runningJob = Nothing }
+                |> L.info res
+                => []
+
+        PAAPIRes (Ok (Kindle.ItemLookup res)) ->
             { model | rateLimited = False, runningJob = Nothing }
                 |> L.info res
                 => []

@@ -8,6 +8,7 @@ import PAAPI.Kindle as Kindle
 type Job
     = Search Kindle.BrowseNode Kindle.Sort Int String (List String)
     | BrowseNodeLookup Kindle.BrowseNode
+    | ItemLookup (List String)
 
 
 type alias JobStack =
@@ -22,6 +23,9 @@ task paapiCredentials associateTag job =
 
         BrowseNodeLookup browseNode ->
             Kindle.browseNodeLookup paapiCredentials associateTag browseNode
+
+        ItemLookup asins ->
+            Kindle.itemLookup paapiCredentials associateTag asins
 
 
 nextPage : Int -> Job -> Maybe Job

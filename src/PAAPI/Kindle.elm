@@ -4,9 +4,11 @@ module PAAPI.Kindle
         , Sort(..)
         , Item
         , Response(..)
+        , comicNodes
         , toBrowseNode
         , search
         , browseNodeLookup
+        , itemLookup
         )
 
 {-| Wrapper client module for PAAPI that queries for items in Kindle store.
@@ -175,6 +177,7 @@ sort sort_ =
 type Response
     = Search SearchResponse
     | BrowseNodeLookup BrowseNodeLookupResponse
+    | ItemLookup (List Item)
 
 
 type alias SearchResponse =
@@ -214,6 +217,10 @@ type alias AdjacentBrowseNode =
     { id : String, name : String }
 
 
+
+-- Search
+
+
 {-| Searches items with given parameters.
 -}
 search :
@@ -229,7 +236,7 @@ search creds tag browseNode sort_ page publisher keywords =
     PAAPI.doGet PAAPI.JP
         creds
         tag
-        searchResultDecoder
+        searchResponseDecoder
         (searchParams browseNode
             sort_
             page
@@ -238,8 +245,8 @@ search creds tag browseNode sort_ page publisher keywords =
         )
 
 
-searchResultDecoder : XD.Decoder Response
-searchResultDecoder =
+searchResponseDecoder : XD.Decoder Response
+searchResponseDecoder =
     XD.map Search <|
         XD.path [ "Items" ] <|
             XD.single <|
@@ -274,12 +281,17 @@ searchParams : BrowseNode -> Sort -> Int -> String -> List String -> KVS
 searchParams browseNode sort_ page publisher keywords =
     [ "Operation" => "ItemSearch"
     , "SearchIndex" => "Books" -- Required for Power Search
-    , "ResponseGroup" => "Request,ItemAttributes,Images"
+    , "ResponseGroup" => itemResponseGroup
     , "BrowseNode" => browseNodeId browseNode
     , "Sort" => sort sort_
     , "ItemPage" => toString page
     , "Power" => power publisher keywords
     ]
+
+
+itemResponseGroup : String
+itemResponseGroup =
+    "Request,ItemAttributes,Images"
 
 
 power : String -> List String -> String
@@ -295,6 +307,10 @@ power publisher keywords =
         |> String.join " and "
 
 
+
+-- BrowseNodeLookup
+
+
 {-| Retrieves existing BrowseNodes relative to the given `BrowseNode`.
 -}
 browseNodeLookup :
@@ -306,12 +322,12 @@ browseNodeLookup creds tag browseNode =
     PAAPI.doGet PAAPI.JP
         creds
         tag
-        browseNodeLookupResultDecoder
+        browseNodeLookupResponseDecoder
         (browseNodeParams browseNode)
 
 
-browseNodeLookupResultDecoder : XD.Decoder Response
-browseNodeLookupResultDecoder =
+browseNodeLookupResponseDecoder : XD.Decoder Response
+browseNodeLookupResponseDecoder =
     XD.map BrowseNodeLookup <|
         XD.path [ "BrowseNodes", "BrowseNode" ] <|
             XD.single <|
@@ -334,4 +350,31 @@ browseNodeParams : BrowseNode -> KVS
 browseNodeParams browseNode =
     [ "BrowseNodeId" => browseNodeId browseNode
     , "Operation" => "BrowseNodeLookup"
+    ]
+
+
+
+-- ItemLookup
+
+
+itemLookup : PAAPI.Credentials -> PAAPI.AssociateTag -> List String -> Task PAAPI.Error Response
+itemLookup creds tag asins =
+    PAAPI.doGet PAAPI.JP
+        creds
+        tag
+        itemLookupResponseDecoder
+        (itemLookupParams asins)
+
+
+itemLookupResponseDecoder : XD.Decoder Response
+itemLookupResponseDecoder =
+    XD.map ItemLookup <|
+        XD.path [ "Items", "Item" ] (XD.list itemDecoder)
+
+
+itemLookupParams : List String -> KVS
+itemLookupParams asins =
+    [ "Operation" => "ItemLookup"
+    , "ResponseGroup" => itemResponseGroup
+    , "ItemId" => (asins |> List.take 10 |> String.join ",")
     ]

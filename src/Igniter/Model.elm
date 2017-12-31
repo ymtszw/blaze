@@ -23,6 +23,7 @@ type alias Options =
 type Mode
     = Search
     | BrowseNodeLookup
+    | ItemLookup
 
 
 parseOptions : List String -> Options
@@ -32,7 +33,12 @@ parseOptions argv =
             Options Search []
 
         mode :: tail ->
-            if String.toLower mode == "browsenode" then
-                Options BrowseNodeLookup tail
-            else
-                Options Search []
+            case String.toLower mode of
+                "browsenode" ->
+                    Options BrowseNodeLookup tail
+
+                "itemlookup" ->
+                    Options ItemLookup tail
+
+                _ ->
+                    Options Search []
