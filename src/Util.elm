@@ -26,14 +26,14 @@ ymd : Date.Date -> String
 ymd date =
     (toString <| Date.year date)
         ++ "/"
-        ++ (toString <| month date)
+        ++ (toString <| monthToInt <| Date.month date)
         ++ "/"
         ++ (toString <| Date.day date)
 
 
-month : Date.Date -> Int
-month date =
-    case Date.month date of
+monthToInt : Date.Month -> Int
+monthToInt month =
+    case month of
         Date.Jan ->
             1
 

@@ -8,6 +8,7 @@ module PAAPI.Kindle
         , search
         , browseNodeLookup
         , itemLookup
+        , noPublisher
         )
 
 {-| Wrapper client module for PAAPI that queries for items in Kindle store.
@@ -199,7 +200,7 @@ type alias Item =
     , title : String
     , releaseDate : Date
     , authors : List String
-    , publisher : String -- This may not present for self-published/dojin items
+    , publisher : String -- This may not present for self-published/dojin items; defaults to "N/A"
     , links : Links
     }
 
@@ -250,6 +251,8 @@ searchResponseDecoder =
                 (XD.succeed SearchResponse
                     |: XD.path [ "TotalPages" ] (XD.single XD.int)
                     |: XD.withDefault 1 (XD.path [ "Request", "ItemSearchRequest", "ItemPage" ] (XD.single XD.int))
+                    -- In ItemSearch, <Items><Errors>...</Errors></Items> will be returned in case of not-found.
+                    -- `list` will then produce empty list when appropriate node is not found, eliminates the need of `withDefault`
                     |: XD.path [ "Item" ] (XD.list itemDecoder)
                 )
 
@@ -261,8 +264,13 @@ itemDecoder =
         |: XD.path [ "ItemAttributes", "Title" ] (XD.single XD.string)
         |: XD.path [ "ItemAttributes", "ReleaseDate" ] (XD.single XD.date)
         |: XD.path [ "ItemAttributes", "Author" ] (XD.list XD.string)
-        |: XD.withDefault "N/A" (XD.path [ "ItemAttributes", "Publisher" ] (XD.single XD.string))
+        |: XD.withDefault noPublisher (XD.path [ "ItemAttributes", "Publisher" ] (XD.single XD.string))
         |: linksDecoder
+
+
+noPublisher : String
+noPublisher =
+    "N/A"
 
 
 linksDecoder : XD.Decoder Links
@@ -291,6 +299,16 @@ itemResponseGroup =
     "Request,ItemAttributes,Images"
 
 
+{-| Composing PowerSearch parameter.
+
+It automatically excludes some keywords:
+
+  - Magazines
+  - Art Books
+  - Bundles
+  - Parts
+
+-}
 power : List String -> String
 power powerSearchParams =
     [ "not 分冊"
@@ -299,7 +317,13 @@ power powerSearchParams =
     , "not まとめ買い"
     ]
         |> (++) powerSearchParams
+        |> List.map wrapInParens
         |> String.join " and "
+
+
+wrapInParens : String -> String
+wrapInParens param =
+    "(" ++ param ++ ")"
 
 
 
