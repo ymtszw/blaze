@@ -35,42 +35,14 @@ type Msg
 
 init : Flags -> ( Model, List (Cmd Msg) )
 init flags =
-    let
-        options =
-            Igniter.Model.parseOptions flags.argv
-    in
-        { paapiCredentials = flags.paapiCredentials
-        , associateTag = flags.associateTag
-        , options = options
-        , rateLimited = False
-        , jobStack = [ firstJob options ]
-        , runningJob = Nothing
-        }
-            |> logWithoutSensitive
-            => []
-
-
-firstJob : Igniter.Model.Options -> Job
-firstJob options =
-    case options.mode of
-        Igniter.Model.Search ->
-            Job.Search Kindle.Boys Kindle.DateRank 1 [ "pubdate: during 12-2017", "publisher: 小学館" ]
-
-        Igniter.Model.BrowseNodeLookup ->
-            Job.BrowseNodeLookup <| browseNode options.argv
-
-        Igniter.Model.ItemLookup ->
-            Job.ItemLookup options.argv
-
-
-browseNode : List String -> Kindle.BrowseNode
-browseNode argv =
-    case argv of
-        [] ->
-            Kindle.Root
-
-        str :: _ ->
-            Kindle.toBrowseNode str
+    { paapiCredentials = flags.paapiCredentials
+    , associateTag = flags.associateTag
+    , rateLimited = False
+    , jobStack = Job.initStack flags.argv
+    , runningJob = Nothing
+    }
+        |> logWithoutSensitive
+        => []
 
 
 logWithoutSensitive : Model -> Model
@@ -95,7 +67,7 @@ update msg model =
             { model
                 | rateLimited = False
                 , runningJob = Nothing
-                , jobStack = scheduleNextSearch model res
+                , jobStack = Job.updateStack model.jobStack model.runningJob res
             }
                 |> L.dumpSearchResponse res
                 => []
@@ -122,6 +94,17 @@ update msg model =
                 => []
 
 
+onTick : Model -> Time -> ( Model, List (Cmd Msg) )
+onTick ({ paapiCredentials, associateTag, jobStack, runningJob } as model) time =
+    case ( jobStack, runningJob ) of
+        ( j :: js, Nothing ) ->
+            { model | jobStack = js, runningJob = Just j }
+                => [ Job.exec PAAPIRes paapiCredentials associateTag j ]
+
+        ( _, _ ) ->
+            model => []
+
+
 repush : Model -> Model
 repush ({ jobStack, runningJob } as model) =
     let
@@ -134,27 +117,6 @@ repush ({ jobStack, runningJob } as model) =
                     jobStack
     in
         { model | jobStack = newStack, runningJob = Nothing }
-
-
-onTick : Model -> Time -> ( Model, List (Cmd Msg) )
-onTick ({ paapiCredentials, associateTag, jobStack, runningJob } as model) time =
-    case ( jobStack, runningJob ) of
-        ( j :: js, Nothing ) ->
-            { model | jobStack = js, runningJob = Just j }
-                => [ Job.task paapiCredentials associateTag j |> Task.attempt PAAPIRes ]
-
-        ( _, _ ) ->
-            model => []
-
-
-scheduleNextSearch : Model -> { x | totalPages : Int } -> Job.JobStack
-scheduleNextSearch { jobStack, runningJob } { totalPages } =
-    case Maybe.andThen (Job.nextPage totalPages) runningJob of
-        Nothing ->
-            jobStack
-
-        Just j ->
-            j :: jobStack
 
 
 
