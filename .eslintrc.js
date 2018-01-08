@@ -7,13 +7,19 @@ module.exports = {
   'parserOptions': {'sourceType': 'module'},
   'rules': {
     'accessor-pairs': 'error',
-    'array-bracket-newline': 'error',
+    'array-bracket-newline': [
+      'error',
+      {'multiline': true},
+    ],
     'array-bracket-spacing': [
       'error',
       'never',
     ],
     'array-callback-return': 'error',
-    'array-element-newline': 'error',
+    'array-element-newline': [
+      'error',
+      {'multiline': true},
+    ],
     'arrow-body-style': 'error',
     'arrow-parens': [
       'error',
@@ -114,7 +120,7 @@ module.exports = {
     'no-caller': 'error',
     'no-catch-shadow': 'error',
     'no-confusing-arrow': 'error',
-    'no-console': 'warn',
+    'no-console': 'off',
     'no-continue': 'error',
     'no-div-regex': 'error',
     'no-duplicate-imports': 'error',
