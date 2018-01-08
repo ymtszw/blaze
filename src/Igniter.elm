@@ -19,6 +19,7 @@ import PAAPI
 import PAAPI.Kindle as Kindle
 import Igniter.Model exposing (Model)
 import Igniter.Job as Job exposing (Job)
+import Igniter.Seed as Seed
 
 
 type alias Flags =
@@ -60,8 +61,7 @@ update : Msg -> Model -> ( Model, List (Cmd Msg) )
 update msg model =
     case msg of
         TickMsg time ->
-            L.info time <|
-                onTick model time
+            time |> L.info time |> onTick model
 
         PAAPIRes (Ok (Kindle.Search res)) ->
             { model
@@ -89,9 +89,7 @@ update msg model =
                 => []
 
         PAAPIRes (Err (PAAPI.HttpError httpError)) ->
-            { model | runningJob = Nothing }
-                |> L.httpError False httpError
-                => []
+            model |> L.httpError False httpError |> onError
 
 
 onTick : Model -> Time -> ( Model, List (Cmd Msg) )
@@ -119,6 +117,16 @@ repush ({ jobStack, runningJob } as model) =
         { model | jobStack = newStack, runningJob = Nothing }
 
 
+onError : Model -> ( Model, List (Cmd Msg) )
+onError model =
+    case model.runningJob of
+        Just (Job.CollectPublishers _ _ _ ps) ->
+            { model | runningJob = Nothing } => [ Seed.dumpCollectedPublishers ps ]
+
+        _ ->
+            { model | runningJob = Nothing } => []
+
+
 
 -- SUBSCRIPTIONS
 
@@ -141,9 +149,9 @@ listenTick { jobStack, runningJob, rateLimited } subs =
 interval : Bool -> Time
 interval rateLimited =
     if rateLimited then
-        1000 * Time.millisecond
+        500 * Time.millisecond
     else
-        200 * Time.millisecond
+        100 * Time.millisecond
 
 
 

@@ -3,3 +3,4 @@ dist/
 paapi_credentials.json
 doc*.json
 npm-debug.log
+known_publishers

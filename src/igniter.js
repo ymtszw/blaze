@@ -19,11 +19,25 @@ const Elm = require('./Igniter.elm')
 
 const startIndexOfAdditionalArgs = 2
 
-Elm.Igniter.worker({
+const worker = Elm.Igniter.worker({
   paapiCredentials: {
     accessKeyId: paapiCredentials.aws_access_key_id,
     secretAccessKey: paapiCredentials.aws_secret_access_key,
   },
   associateTag: paapiCredentials.associate_tag,
   argv: process.argv.slice(startIndexOfAdditionalArgs),
+})
+
+// Ports
+
+worker.ports.writeFile.subscribe(([filename, contents]) => {
+  fs.writeFile(filename, contents, err => {
+    if (err) {
+      console.error(`Cannot write to ${filename}`)
+      console.error(contents)
+      throw err
+    } else {
+      console.log(`Written to ${filename}`)
+    }
+  })
 })

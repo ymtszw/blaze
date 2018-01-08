@@ -37,6 +37,7 @@ Some items do not have Publisher attribute.
 
 import Date exposing (Month(..))
 import Set exposing (Set)
+import Fuse
 import Util
 import PAAPI.Kindle exposing (BrowseNode(..))
 
@@ -238,3 +239,12 @@ publisherParam publisherFilter =
 
                     filter ->
                         Just filter
+
+
+
+-- Collect Publishers
+
+
+dumpCollectedPublishers : Set String -> Cmd msg
+dumpCollectedPublishers publishers =
+    publishers |> Set.toList |> String.join "\n" |> curry Fuse.writeFile "known_publishers"
