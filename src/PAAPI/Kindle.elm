@@ -232,7 +232,7 @@ search :
     -> List String
     -> Task PAAPI.Error Response
 search creds tag browseNode sort_ page powerSearchParams =
-    PAAPI.doGet PAAPI.JP
+    PAAPI.doPost PAAPI.JP
         creds
         tag
         searchResponseDecoder
@@ -338,7 +338,7 @@ browseNodeLookup :
     -> BrowseNode
     -> Task PAAPI.Error Response
 browseNodeLookup creds tag browseNode =
-    PAAPI.doGet PAAPI.JP
+    PAAPI.doPost PAAPI.JP
         creds
         tag
         browseNodeLookupResponseDecoder
@@ -378,7 +378,7 @@ browseNodeParams browseNode =
 
 itemLookup : PAAPI.Credentials -> PAAPI.AssociateTag -> List String -> Task PAAPI.Error Response
 itemLookup creds tag asins =
-    PAAPI.doGet PAAPI.JP
+    PAAPI.doPost PAAPI.JP
         creds
         tag
         itemLookupResponseDecoder
