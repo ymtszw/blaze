@@ -17,6 +17,17 @@ const paapiCredentials = ini.decode(fs.readFileSync(`${home}/.aws/credentials`, 
 
 const Elm = require('./Igniter.elm')
 
+let knownPublishers = []
+
+try {
+  knownPublishers = fs.readFileSync('known_publishers', 'utf-8').split('\n')
+} catch (err) {
+  if (err.code !== 'ENOENT') {
+    console.error(err)
+    throw err
+  }
+}
+
 const startIndexOfAdditionalArgs = 2
 
 const worker = Elm.Igniter.worker({
@@ -25,6 +36,7 @@ const worker = Elm.Igniter.worker({
     secretAccessKey: paapiCredentials.aws_secret_access_key,
   },
   associateTag: paapiCredentials.associate_tag,
+  knownPublishers,
   argv: process.argv.slice(startIndexOfAdditionalArgs),
 })
 

@@ -17,15 +17,20 @@ import Rocket exposing (..)
 import Logger as L
 import PAAPI
 import PAAPI.Kindle as Kindle
-import Igniter.Model exposing (Model)
-import Igniter.Job as Job exposing (Job)
+import Igniter.Job as Job exposing (Job, JobStack)
 import Igniter.Seed as Seed
 
 
-type alias Flags =
+-- TYPES
+
+
+type alias Model =
     { paapiCredentials : PAAPI.Credentials
     , associateTag : PAAPI.AssociateTag
-    , argv : List String
+    , knownPublishers : List String
+    , rateLimited : Bool
+    , jobStack : JobStack
+    , runningJob : Maybe Job
     }
 
 
@@ -34,14 +39,27 @@ type Msg
     | PAAPIRes (Result PAAPI.Error Kindle.Response)
 
 
+
+-- INIT
+
+
+type alias Flags =
+    { paapiCredentials : PAAPI.Credentials
+    , associateTag : PAAPI.AssociateTag
+    , knownPublishers : List String
+    , argv : List String
+    }
+
+
 init : Flags -> ( Model, List (Cmd Msg) )
 init flags =
-    { paapiCredentials = flags.paapiCredentials
-    , associateTag = flags.associateTag
-    , rateLimited = False
-    , jobStack = Job.initStack flags.argv
-    , runningJob = Nothing
-    }
+    Model
+        flags.paapiCredentials
+        flags.associateTag
+        flags.knownPublishers
+        False
+        (Job.initStack flags.argv)
+        Nothing
         |> logWithoutSensitive
         => []
 
