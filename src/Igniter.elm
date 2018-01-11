@@ -61,16 +61,10 @@ update : Msg -> Model -> ( Model, List (Cmd Msg) )
 update msg model =
     case msg of
         TickMsg time ->
-            time |> L.info time |> onTick model
+            onTick model time
 
         PAAPIRes (Ok (Kindle.Search res)) ->
-            { model
-                | rateLimited = False
-                , runningJob = Nothing
-                , jobStack = Job.updateStack model.jobStack model.runningJob res
-            }
-                |> L.dumpSearchResponse res
-                => []
+            model |> onSearchSuccess res |> L.dumpSearchResponse res
 
         PAAPIRes (Ok (Kindle.BrowseNodeLookup res)) ->
             { model | rateLimited = False, runningJob = Nothing }
@@ -120,11 +114,41 @@ repush ({ jobStack, runningJob } as model) =
 onError : Model -> ( Model, List (Cmd Msg) )
 onError model =
     case model.runningJob of
-        Just (Job.CollectPublishers _ _ _ ps) ->
+        Just (Job.CollectPublishers _ _ _ _ ps) ->
             { model | runningJob = Nothing } => [ Seed.dumpCollectedPublishers ps ]
 
         _ ->
             { model | runningJob = Nothing } => []
+
+
+onSearchSuccess : Kindle.SearchResponse -> Model -> ( Model, List (Cmd Msg) )
+onSearchSuccess res ({ runningJob, jobStack } as model) =
+    let
+        newStack =
+            Job.updateStack jobStack runningJob res
+
+        newModel =
+            { model
+                | rateLimited = False
+                , runningJob = Nothing
+                , jobStack = newStack
+            }
+    in
+        case runningJob of
+            Just (Job.CollectPublishers _ _ pd _ ps) ->
+                let
+                    logPubdate =
+                        Debug.log "Searching" pd
+                in
+                    case newStack of
+                        [] ->
+                            newModel => [ Seed.dumpCollectedPublishers ps ]
+
+                        _ ->
+                            newModel => []
+
+            _ ->
+                newModel => []
 
 
 
@@ -149,9 +173,9 @@ listenTick { jobStack, runningJob, rateLimited } subs =
 interval : Bool -> Time
 interval rateLimited =
     if rateLimited then
-        500 * Time.millisecond
+        300 * Time.millisecond
     else
-        100 * Time.millisecond
+        50 * Time.millisecond
 
 
 

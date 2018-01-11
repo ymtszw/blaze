@@ -69,3 +69,43 @@ monthToInt month =
 
         Date.Dec ->
             12
+
+
+intToMonth : Int -> Date.Month
+intToMonth int =
+    case int % 12 of
+        1 ->
+            Date.Jan
+
+        2 ->
+            Date.Feb
+
+        3 ->
+            Date.Mar
+
+        4 ->
+            Date.Apr
+
+        5 ->
+            Date.May
+
+        6 ->
+            Date.Jun
+
+        7 ->
+            Date.Jul
+
+        8 ->
+            Date.Aug
+
+        9 ->
+            Date.Sep
+
+        10 ->
+            Date.Oct
+
+        11 ->
+            Date.Nov
+
+        _ ->
+            Date.Dec

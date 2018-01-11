@@ -15,7 +15,7 @@ type Job
     = Search Kindle.BrowseNode Kindle.Sort Int (List String)
     | BrowseNodeLookup Kindle.BrowseNode
     | ItemLookup (List String)
-    | CollectPublishers (List Kindle.BrowseNode) Seed.Pubdate Int (Set String)
+    | CollectPublishers Seed.Pubdate (List Kindle.BrowseNode) Seed.Pubdate Int (Set String)
 
 
 type alias JobStack =
@@ -41,10 +41,10 @@ initStack argv =
                     [ ItemLookup tail ]
 
                 "collectpublishers" ->
-                    [ CollectPublishers Seed.comicNodes Seed.pubdateOrigin 1 Seed.wellknownPublishers ]
+                    [ CollectPublishers (Seed.pubdateFromArgs tail) Seed.comicNodes Seed.pubdateOrigin 1 Seed.wellknownPublishers ]
 
                 _ ->
-                    [ Search Kindle.Boys Kindle.DateRank 1 tail ]
+                    [ Search Kindle.Comic Kindle.DateRank 1 tail ]
 
 
 targetBrowseNode : List String -> Kindle.BrowseNode
@@ -64,7 +64,7 @@ targetBrowseNode argv =
 updateStack :
     JobStack
     -> Maybe Job
-    -> { x | totalPages : Int, items : List Kindle.Item } -- SearchResponse
+    -> Kindle.SearchResponse
     -> JobStack
 updateStack jobStack runningJobMaybe { totalPages, items } =
     case runningJobMaybe of
@@ -76,18 +76,32 @@ updateStack jobStack runningJobMaybe { totalPages, items } =
                 Just np ->
                     (Search bn s np params) :: jobStack
 
-        Just (CollectPublishers browseNodes pubdate page foundPublishers) ->
+        Just (CollectPublishers pubdateLimit browseNodes pubdate page foundPublishers) ->
             case List.map .publisher items of
                 [] ->
-                    nextBrowseNode browseNodes foundPublishers jobStack
+                    if pubdate == pubdateLimit then
+                        nextBrowseNode pubdateLimit browseNodes foundPublishers jobStack
+                    else
+                        (CollectPublishers pubdateLimit browseNodes (Seed.nextPubdate pubdate) 1 foundPublishers) :: jobStack
 
                 ps ->
                     let
                         newPublishers =
                             mergePublishers foundPublishers ps
+                                |> Debug.log "Found Publishers"
                     in
-                        nextPageOrDate totalPages browseNodes pubdate page foundPublishers newPublishers jobStack
-                            |> L.info newPublishers
+                        if foundPublishers == newPublishers then
+                            case nextPage totalPages page of
+                                Nothing ->
+                                    if pubdate == pubdateLimit then
+                                        nextBrowseNode pubdateLimit browseNodes foundPublishers jobStack
+                                    else
+                                        (CollectPublishers pubdateLimit browseNodes (Seed.nextPubdate pubdate) 1 foundPublishers) :: jobStack
+
+                                Just np ->
+                                    (CollectPublishers pubdateLimit browseNodes pubdate np foundPublishers) :: jobStack
+                        else
+                            (CollectPublishers pubdateLimit browseNodes pubdate 1 newPublishers) :: jobStack
 
         Just (BrowseNodeLookup _) ->
             jobStack
@@ -109,15 +123,15 @@ nextPage totalPages page =
         Just (page + 1)
 
 
-nextBrowseNode : List Kindle.BrowseNode -> Set String -> JobStack -> JobStack
-nextBrowseNode browseNodes foundPublishers jobStack =
+nextBrowseNode : Seed.Pubdate -> List Kindle.BrowseNode -> Set String -> JobStack -> JobStack
+nextBrowseNode pubdateLimit browseNodes foundPublishers jobStack =
     case browseNodes of
         [ _ ] ->
             -- Done collecting.
             L.info foundPublishers jobStack
 
         _ :: bns ->
-            (CollectPublishers bns Seed.pubdateOrigin 1 foundPublishers) :: jobStack
+            (CollectPublishers pubdateLimit bns Seed.pubdateOrigin 1 foundPublishers) :: jobStack
 
         [] ->
             -- Should not happen; CollectPublishers job must not continue when all browseNodes are searched
@@ -127,27 +141,6 @@ nextBrowseNode browseNodes foundPublishers jobStack =
 mergePublishers : Set String -> List String -> Set String
 mergePublishers foundPublishers =
     Set.fromList >> Set.union foundPublishers >> Set.remove Kindle.noPublisher
-
-
-nextPageOrDate :
-    Int
-    -> List Kindle.BrowseNode
-    -> Seed.Pubdate
-    -> Int
-    -> Set String
-    -> Set String
-    -> JobStack
-    -> JobStack
-nextPageOrDate totalPages browseNodes pubdate page foundPublishers newPublishers jobStack =
-    case nextPage totalPages page of
-        Nothing ->
-            (CollectPublishers browseNodes (Seed.prevPubdate pubdate) 1 newPublishers) :: jobStack
-
-        Just np ->
-            if foundPublishers == newPublishers then
-                (CollectPublishers browseNodes pubdate np newPublishers) :: jobStack
-            else
-                (CollectPublishers browseNodes pubdate 1 newPublishers) :: jobStack
 
 
 
@@ -171,7 +164,7 @@ task paapiCredentials associateTag job =
         ItemLookup asins ->
             Kindle.itemLookup paapiCredentials associateTag asins
 
-        CollectPublishers browseNodes pubdate page foundPublishers ->
+        CollectPublishers _ browseNodes pubdate page foundPublishers ->
             case browseNodes of
                 browseNode :: _ ->
                     Seed.power (Just pubdate) (Seed.Exclude foundPublishers)

@@ -4,6 +4,7 @@ module PAAPI.Kindle
         , Sort(..)
         , Item
         , Response(..)
+        , SearchResponse
         , toBrowseNode
         , search
         , browseNodeLookup

@@ -60,7 +60,7 @@ type Pubdate
 
 pubdateOrigin : Pubdate
 pubdateOrigin =
-    Pubdate Jan 2018
+    Pubdate Jan 2000
 
 
 nextPubdate : Pubdate -> Pubdate
@@ -161,6 +161,22 @@ prevM m =
 
         Dec ->
             Nov
+
+
+pubdateFromArgs : List String -> Pubdate
+pubdateFromArgs args =
+    case args of
+        year :: (month :: _) ->
+            Result.map2 Pubdate
+                (String.toInt month |> Result.map Util.intToMonth)
+                (String.toInt year)
+                |> Result.withDefault pubdateOrigin
+
+        year :: _ ->
+            year |> String.toInt |> Result.map (Pubdate Jan) |> Result.withDefault pubdateOrigin
+
+        [] ->
+            pubdateOrigin
 
 
 
