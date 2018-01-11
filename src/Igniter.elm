@@ -27,7 +27,6 @@ import Igniter.Seed as Seed
 type alias Model =
     { paapiCredentials : PAAPI.Credentials
     , associateTag : PAAPI.AssociateTag
-    , knownPublishers : List String
     , rateLimited : Bool
     , jobStack : JobStack
     , runningJob : Maybe Job
@@ -56,9 +55,8 @@ init flags =
     Model
         flags.paapiCredentials
         flags.associateTag
-        flags.knownPublishers
         False
-        (Job.initStack flags.argv)
+        (Job.initStack flags.knownPublishers flags.argv)
         Nothing
         |> logWithoutSensitive
         => []
@@ -82,7 +80,13 @@ update msg model =
             onTick model time
 
         PAAPIRes (Ok (Kindle.Search res)) ->
-            model |> onSearchSuccess res |> L.dumpSearchResponse res
+            { model
+                | rateLimited = False
+                , runningJob = Nothing
+                , jobStack = Job.updateStack model.jobStack model.runningJob res
+            }
+                |> L.dumpSearchResponse res
+                => []
 
         PAAPIRes (Ok (Kindle.BrowseNodeLookup res)) ->
             { model | rateLimited = False, runningJob = Nothing }
@@ -93,6 +97,17 @@ update msg model =
             { model | rateLimited = False, runningJob = Nothing }
                 |> L.info res
                 => []
+
+        PAAPIRes (Ok Kindle.Terminate) ->
+            case model.runningJob of
+                Just (Job.CollectPublishers _ _ _ _ ps) ->
+                    { model | runningJob = Nothing } => [ Seed.dumpCollectedPublishers ps ]
+
+                Just (Job.RankPublishers _ rankedPublishers) ->
+                    { model | runningJob = Nothing } => [ Seed.dumpRankedPublishers rankedPublishers ]
+
+                _ ->
+                    { model | runningJob = Nothing } => []
 
         PAAPIRes (Err PAAPI.RateLimit) ->
             { model | rateLimited = True }
@@ -137,36 +152,6 @@ onError model =
 
         _ ->
             { model | runningJob = Nothing } => []
-
-
-onSearchSuccess : Kindle.SearchResponse -> Model -> ( Model, List (Cmd Msg) )
-onSearchSuccess res ({ runningJob, jobStack } as model) =
-    let
-        newStack =
-            Job.updateStack jobStack runningJob res
-
-        newModel =
-            { model
-                | rateLimited = False
-                , runningJob = Nothing
-                , jobStack = newStack
-            }
-    in
-        case runningJob of
-            Just (Job.CollectPublishers _ _ pd _ ps) ->
-                let
-                    logPubdate =
-                        Debug.log "Searching" pd
-                in
-                    case newStack of
-                        [] ->
-                            newModel => [ Seed.dumpCollectedPublishers ps ]
-
-                        _ ->
-                            newModel => []
-
-            _ ->
-                newModel => []
 
 
 

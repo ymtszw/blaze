@@ -258,9 +258,18 @@ publisherParam publisherFilter =
 
 
 
--- Collect Publishers
+-- Dump ports
 
 
 dumpCollectedPublishers : Set String -> Cmd msg
 dumpCollectedPublishers publishers =
     publishers |> Set.toList |> String.join "\n" |> curry Fuse.writeFile "known_publishers"
+
+
+dumpRankedPublishers : List ( String, Int ) -> Cmd msg
+dumpRankedPublishers publisherIndex =
+    publisherIndex
+        |> List.sortBy (\( _, totalPages ) -> totalPages)
+        |> List.map (\( p, i ) -> Debug.log p i |> always (p ++ "," ++ toString i))
+        |> String.join "\n"
+        |> curry Fuse.writeFile "ranked_publishers"

@@ -179,6 +179,7 @@ type Response
     = Search SearchResponse
     | BrowseNodeLookup BrowseNodeLookupResponse
     | ItemLookup (List Item)
+    | Terminate
 
 
 type alias SearchResponse =

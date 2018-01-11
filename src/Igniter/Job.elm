@@ -16,6 +16,7 @@ type Job
     | BrowseNodeLookup Kindle.BrowseNode
     | ItemLookup (List String)
     | CollectPublishers Seed.Pubdate (List Kindle.BrowseNode) Seed.Pubdate Int (Set String)
+    | RankPublishers (List String) (List ( String, Int ))
 
 
 type alias JobStack =
@@ -26,8 +27,8 @@ type alias JobStack =
 -- Job Initizlization
 
 
-initStack : List String -> JobStack
-initStack argv =
+initStack : List String -> List String -> JobStack
+initStack knownPublishers argv =
     case argv of
         [] ->
             [ Search Kindle.Boys Kindle.DateRank 1 <| Seed.power (Just Seed.pubdateOrigin) (Seed.By Seed.shueisha) ]
@@ -42,6 +43,9 @@ initStack argv =
 
                 "collectpublishers" ->
                     [ CollectPublishers (Seed.pubdateFromArgs tail) Seed.comicNodes Seed.pubdateOrigin 1 Seed.wellknownPublishers ]
+
+                "rankpublishers" ->
+                    [ RankPublishers knownPublishers [] ]
 
                 _ ->
                     [ Search Kindle.Comic Kindle.DateRank 1 tail ]
@@ -109,6 +113,12 @@ updateStack jobStack runningJobMaybe { totalPages, items } =
         Just (ItemLookup _) ->
             jobStack
 
+        Just (RankPublishers (kp :: kps) publisherIndex) ->
+            (RankPublishers kps (( kp, totalPages ) :: publisherIndex)) :: jobStack
+
+        Just (RankPublishers [] publisherIndex) ->
+            jobStack
+
         Nothing ->
             jobStack
 
@@ -126,16 +136,11 @@ nextPage totalPages page =
 nextBrowseNode : Seed.Pubdate -> List Kindle.BrowseNode -> Set String -> JobStack -> JobStack
 nextBrowseNode pubdateLimit browseNodes foundPublishers jobStack =
     case browseNodes of
-        [ _ ] ->
-            -- Done collecting.
-            L.info foundPublishers jobStack
-
         _ :: bns ->
             (CollectPublishers pubdateLimit bns Seed.pubdateOrigin 1 foundPublishers) :: jobStack
 
         [] ->
-            -- Should not happen; CollectPublishers job must not continue when all browseNodes are searched
-            jobStack
+            L.info foundPublishers jobStack
 
 
 mergePublishers : Set String -> List String -> Set String
@@ -164,12 +169,13 @@ task paapiCredentials associateTag job =
         ItemLookup asins ->
             Kindle.itemLookup paapiCredentials associateTag asins
 
-        CollectPublishers _ browseNodes pubdate page foundPublishers ->
-            case browseNodes of
-                browseNode :: _ ->
-                    Seed.power (Just pubdate) (Seed.Exclude foundPublishers)
-                        |> Kindle.search paapiCredentials associateTag browseNode Kindle.DateRank page
+        CollectPublishers _ (browseNode :: _) pubdate page foundPublishers ->
+            Seed.power (Just pubdate) (Seed.Exclude foundPublishers)
+                |> Kindle.search paapiCredentials associateTag browseNode Kindle.DateRank page
 
-                [] ->
-                    -- Should not happen
-                    Task.fail PAAPI.RateLimit
+        RankPublishers (kp :: _) publisherIndex ->
+            Seed.power Nothing (Seed.By kp)
+                |> Kindle.search paapiCredentials associateTag Kindle.Comic Kindle.DateRank 1
+
+        _ ->
+            Task.succeed Kindle.Terminate
