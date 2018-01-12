@@ -125,9 +125,7 @@ updateStack jobStack runningJobMaybe { totalPages, items } =
 
 nextPage : Int -> Int -> Maybe Int
 nextPage totalPages page =
-    if totalPages <= 1 then
-        Nothing
-    else if page >= totalPages then
+    if totalPages <= 1 || page >= totalPages || page >= 10 then
         Nothing
     else
         Just (page + 1)
