@@ -1,0 +1,28 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CloudFormation Template for setting up all AWS resourecs
+Resources:
+  ItemsTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      TableName: items
+      AttributeDefinitions:
+        - AttributeName: asin
+          AttributeType: S
+        - AttributeName: publisher
+          AttributeType: S
+      KeySchema:
+        - AttributeName: asin
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      GlobalSecondaryIndexes:
+        - IndexName: publisher
+          KeySchema:
+            - AttributeName: publisher
+              KeyType: HASH
+          Projection:
+            ProjectionType: KEYS_ONLY
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
